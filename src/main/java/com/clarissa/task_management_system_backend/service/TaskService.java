@@ -4,6 +4,7 @@ import com.clarissa.task_management_system_backend.model.Task;
 import com.clarissa.task_management_system_backend.model.TaskStatus;
 import com.clarissa.task_management_system_backend.dto.task.TaskRequest;
 import com.clarissa.task_management_system_backend.dto.task.TaskResponse;
+import com.clarissa.task_management_system_backend.exception.ResourceNotFoundException;
 import com.clarissa.task_management_system_backend.repository.TaskRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -59,7 +60,7 @@ public class TaskService {
      */
     public TaskResponse getTaskById(String taskId) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new RuntimeException("Task not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
         return convertToResponse(task);
     }
     
@@ -68,7 +69,7 @@ public class TaskService {
      */
     public TaskResponse updateTask(String taskId, TaskRequest request) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new RuntimeException("Task not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
         
         task.setTitle(request.getTitle());
         task.setDescription(request.getDescription());
@@ -84,7 +85,7 @@ public class TaskService {
      */
     public TaskResponse updateTaskStatus(String taskId, TaskStatus status) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new RuntimeException("Task not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
         
         task.setStatus(status);
         task.setUpdatedAt(LocalDateTime.now());
