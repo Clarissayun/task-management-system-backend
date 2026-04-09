@@ -5,6 +5,7 @@ import com.clarissa.task_management_system_backend.dto.auth.LoginRequest;
 import com.clarissa.task_management_system_backend.dto.auth.AuthResponse;
 import com.clarissa.task_management_system_backend.dto.user.UserResponse;
 import com.clarissa.task_management_system_backend.dto.user.UserUpdateRequest;
+import com.clarissa.task_management_system_backend.dto.user.PasswordUpdateRequest;
 import com.clarissa.task_management_system_backend.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -62,12 +63,26 @@ public class AuthController {
     /**
      * Update user information
      * PUT /api/auth/user/{userId}
+     * Only updates provided fields (username and/or email)
      */
     @PutMapping("/user/{userId}")
     public ResponseEntity<UserResponse> updateUser(
             @PathVariable String userId,
             @RequestBody UserUpdateRequest request) {
         UserResponse response = userService.updateUser(userId, request);
+        return ResponseEntity.ok(response);
+    }
+    
+    /**
+     * Change user password
+     * POST /api/auth/change-password/{userId}
+     * Requires old password verification
+     */
+    @PostMapping("/change-password/{userId}")
+    public ResponseEntity<AuthResponse> changePassword(
+            @PathVariable String userId,
+            @RequestBody PasswordUpdateRequest request) {
+        AuthResponse response = userService.changePassword(userId, request);
         return ResponseEntity.ok(response);
     }
 }
