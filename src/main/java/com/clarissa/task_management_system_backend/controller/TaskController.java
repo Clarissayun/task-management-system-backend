@@ -77,10 +77,10 @@ public class TaskController {
     
     /**
      * Update task status only
-     * PATCH /api/tasks/{taskId}/status?status={status}
-     * Example: PATCH /api/tasks/123/status?status=IN_PROGRESS
+     * PUT /api/tasks/{taskId}/status?status={status}
+     * Example: PUT /api/tasks/123/status?status=IN_PROGRESS
      */
-    @PatchMapping("/{taskId}/status")
+    @PutMapping("/{taskId}/status")
     public ResponseEntity<TaskResponse> updateTaskStatus(
             @PathVariable String taskId,
             @RequestParam TaskStatus status) {
