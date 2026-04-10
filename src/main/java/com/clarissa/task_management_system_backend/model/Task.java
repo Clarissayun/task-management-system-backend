@@ -19,7 +19,7 @@ public class Task {
     private String title;
     private String description;
     private TaskStatus status = TaskStatus.TODO; // Default status
-    private String priority;
+    private TaskPriority priority;
     private LocalDateTime createdAt = LocalDateTime.now();
     private LocalDateTime updatedAt = LocalDateTime.now();
 }
