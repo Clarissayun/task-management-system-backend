@@ -124,10 +124,10 @@ public class UserService {
     }
     
     /**
-     * Change user password
+     * Update user password
      * Must provide old password for verification
      */
-    public AuthResponse changePassword(String userId, PasswordUpdateRequest request) {
+    public AuthResponse updatePassword(String userId, PasswordUpdateRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         
@@ -145,7 +145,7 @@ public class UserService {
         userRepository.save(user);
         
         return new AuthResponse(
-            "Password changed successfully",
+            "Password updated successfully",
             user.getId(),
             user.getUsername(),
             user.getEmail()

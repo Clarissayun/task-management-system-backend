@@ -74,15 +74,15 @@ public class AuthController {
     }
     
     /**
-     * Change user password
-     * POST /api/auth/change-password/{userId}
+     * Update user password
+     * POST /api/auth/update-password/{userId}
      * Requires old password verification
      */
-    @PostMapping("/change-password/{userId}")
-    public ResponseEntity<AuthResponse> changePassword(
+    @PostMapping("/update-password/{userId}")
+    public ResponseEntity<AuthResponse> updatePassword(
             @PathVariable String userId,
             @RequestBody PasswordUpdateRequest request) {
-        AuthResponse response = userService.changePassword(userId, request);
+        AuthResponse response = userService.updatePassword(userId, request);
         return ResponseEntity.ok(response);
     }
 }
