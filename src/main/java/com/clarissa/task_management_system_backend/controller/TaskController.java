@@ -1,6 +1,7 @@
 package com.clarissa.task_management_system_backend.controller;
 
 import com.clarissa.task_management_system_backend.model.TaskStatus;
+import com.clarissa.task_management_system_backend.model.TaskPriority;
 import com.clarissa.task_management_system_backend.dto.task.TaskRequest;
 import com.clarissa.task_management_system_backend.dto.task.TaskResponse;
 import com.clarissa.task_management_system_backend.service.TaskService;
@@ -50,6 +51,19 @@ public class TaskController {
             @RequestParam String userId,
             @RequestParam TaskStatus status) {
         List<TaskResponse> tasks = taskService.getTasksByUserIdAndStatus(userId, status);
+        return ResponseEntity.ok(tasks);
+    }
+    
+    /**
+     * Get tasks by user and priority
+     * GET /api/tasks/priority?userId={userId}&priority={priority}
+     * Example: GET /api/tasks/priority?userId=123&priority=HIGH
+     */
+    @GetMapping("/priority")
+    public ResponseEntity<List<TaskResponse>> getTasksByUserIdAndPriority(
+            @RequestParam String userId,
+            @RequestParam TaskPriority priority) {
+        List<TaskResponse> tasks = taskService.getTasksByUserIdAndPriority(userId, priority);
         return ResponseEntity.ok(tasks);
     }
     

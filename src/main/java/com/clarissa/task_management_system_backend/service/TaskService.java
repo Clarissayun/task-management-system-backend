@@ -2,6 +2,7 @@ package com.clarissa.task_management_system_backend.service;
 
 import com.clarissa.task_management_system_backend.model.Task;
 import com.clarissa.task_management_system_backend.model.TaskStatus;
+import com.clarissa.task_management_system_backend.model.TaskPriority;
 import com.clarissa.task_management_system_backend.dto.task.TaskRequest;
 import com.clarissa.task_management_system_backend.dto.task.TaskResponse;
 import com.clarissa.task_management_system_backend.exception.ResourceNotFoundException;
@@ -50,6 +51,16 @@ public class TaskService {
      */
     public List<TaskResponse> getTasksByUserIdAndStatus(String userId, TaskStatus status) {
         return taskRepository.findByUserIdAndStatus(userId, status)
+                .stream()
+                .map(this::convertToResponse)
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * Get tasks by user ID and priority
+     */
+    public List<TaskResponse> getTasksByUserIdAndPriority(String userId, TaskPriority priority) {
+        return taskRepository.findByUserIdAndPriority(userId, priority)
                 .stream()
                 .map(this::convertToResponse)
                 .collect(Collectors.toList());
