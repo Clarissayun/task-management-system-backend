@@ -1,5 +1,7 @@
 package com.clarissa.task_management_system_backend.dto.user;
 
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -9,6 +11,10 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class UserUpdateRequest {
     
+    @Size(min = 3, max = 30, message = "Username must be between 3 and 30 characters")
     private String username;
+    
+    @Email(message = "Email must be a valid email address")
+    @Size(max = 254, message = "Email must not exceed 254 characters")
     private String email;
 }

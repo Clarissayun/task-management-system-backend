@@ -12,34 +12,44 @@ import com.clarissa.task_management_system_backend.exception.BadRequestException
 import com.clarissa.task_management_system_backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import java.time.LocalDateTime;
+import java.util.Locale;
+import java.util.Set;
 
 @Service
 public class UserService {
     
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
     
     /**
      * Register a new user
      */
     public AuthResponse register(RegisterRequest request) {
+        String normalizedUsername = normalizeUsername(request.getUsername());
+        String normalizedEmail = normalizeEmail(request.getEmail());
+
+        validatePasswordPolicy(request.getPassword(), normalizedUsername, normalizedEmail);
         
         // Check if username already exists
-        if (userRepository.existsByUsername(request.getUsername())) {
+        if (userRepository.existsByUsername(normalizedUsername)) {
             throw new BadRequestException("Username already exists");
         }
         
         // Check if email already exists
-        if (userRepository.existsByEmail(request.getEmail())) {
+        if (userRepository.existsByEmail(normalizedEmail)) {
             throw new BadRequestException("Email already exists");
         }
         
         // Create new user
         User user = new User();
-        user.setUsername(request.getUsername());
-        user.setEmail(request.getEmail());
-        user.setPassword(request.getPassword()); // TODO: Hash password with BCrypt
+        user.setUsername(normalizedUsername);
+        user.setEmail(normalizedEmail);
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setCreatedAt(LocalDateTime.now());
         
         User savedUser = userRepository.save(user);
@@ -59,11 +69,12 @@ public class UserService {
         
         User user = userRepository.findByUsername(request.getUsername())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-        
-        // Check if password matches (plaintext for now, TODO: use BCrypt comparison later)
-        if (!user.getPassword().equals(request.getPassword())) {
+
+        if (!isPasswordMatch(request.getPassword(), user.getPassword())) {
             throw new BadRequestException("Invalid password");
         }
+
+        migratePasswordIfNeeded(user, request.getPassword());
         
         return new AuthResponse(
             "Login successful",
@@ -103,20 +114,24 @@ public class UserService {
         
         // Update username only if provided
         if (request.getUsername() != null && !request.getUsername().isEmpty()) {
-            if (!user.getUsername().equals(request.getUsername()) && 
-                userRepository.existsByUsername(request.getUsername())) {
+            String normalizedUsername = normalizeUsername(request.getUsername());
+
+            if (!user.getUsername().equals(normalizedUsername) && 
+                userRepository.existsByUsername(normalizedUsername)) {
                 throw new BadRequestException("Username already taken");
             }
-            user.setUsername(request.getUsername());
+            user.setUsername(normalizedUsername);
         }
         
         // Update email only if provided
         if (request.getEmail() != null && !request.getEmail().isEmpty()) {
-            if (!user.getEmail().equals(request.getEmail()) && 
-                userRepository.existsByEmail(request.getEmail())) {
+            String normalizedEmail = normalizeEmail(request.getEmail());
+
+            if (!user.getEmail().equals(normalizedEmail) && 
+                userRepository.existsByEmail(normalizedEmail)) {
                 throw new BadRequestException("Email already in use");
             }
-            user.setEmail(request.getEmail());
+            user.setEmail(normalizedEmail);
         }
         
         User updatedUser = userRepository.save(user);
@@ -131,8 +146,7 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         
-        // Verify old password (plaintext for now, TODO: use BCrypt comparison later)
-        if (!user.getPassword().equals(request.getOldPassword())) {
+        if (!isPasswordMatch(request.getOldPassword(), user.getPassword())) {
             throw new BadRequestException("Old password is incorrect");
         }
         
@@ -140,8 +154,10 @@ public class UserService {
         if (request.getOldPassword().equals(request.getNewPassword())) {
             throw new BadRequestException("New password must be different from old password");
         }
+
+        validatePasswordPolicy(request.getNewPassword(), user.getUsername(), user.getEmail());
         
-        user.setPassword(request.getNewPassword());
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
         
         return new AuthResponse(
@@ -162,5 +178,100 @@ public class UserService {
             user.getEmail(),
             user.getCreatedAt()
         );
+    }
+
+    private boolean isPasswordMatch(String rawPassword, String storedPassword) {
+        if (rawPassword == null || storedPassword == null) {
+            return false;
+        }
+
+        if (isBcryptHash(storedPassword)) {
+            return passwordEncoder.matches(rawPassword, storedPassword);
+        }
+
+        return storedPassword.equals(rawPassword);
+    }
+
+    private boolean isBcryptHash(String password) {
+        return password != null && password.matches("^\\$2[aby]?\\$\\d{2}\\$.*");
+    }
+
+    private void migratePasswordIfNeeded(User user, String rawPassword) {
+        if (user.getPassword() != null && !isBcryptHash(user.getPassword())) {
+            user.setPassword(passwordEncoder.encode(rawPassword));
+            userRepository.save(user);
+        }
+    }
+
+    private String normalizeUsername(String username) {
+        return username == null ? null : username.trim();
+    }
+
+    private String normalizeEmail(String email) {
+        return email == null ? null : email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private void validatePasswordPolicy(String password, String username, String email) {
+        if (password == null) {
+            throw new BadRequestException("Password is required");
+        }
+
+        if (password.length() < 12) {
+            throw new BadRequestException("Password must be at least 12 characters long");
+        }
+
+        if (password.length() > 128) {
+            throw new BadRequestException("Password must not exceed 128 characters");
+        }
+
+        if (!password.matches(".*[A-Z].*")) {
+            throw new BadRequestException("Password must contain at least one uppercase letter");
+        }
+
+        if (!password.matches(".*[a-z].*")) {
+            throw new BadRequestException("Password must contain at least one lowercase letter");
+        }
+
+        if (!password.matches(".*\\d.*")) {
+            throw new BadRequestException("Password must contain at least one number");
+        }
+
+        if (!password.matches(".*[^A-Za-z0-9].*")) {
+            throw new BadRequestException("Password must contain at least one special character");
+        }
+
+        String loweredPassword = password.toLowerCase(Locale.ROOT);
+
+        if (username != null && !username.isBlank() && loweredPassword.contains(username.trim().toLowerCase(Locale.ROOT))) {
+            throw new BadRequestException("Password must not contain the username");
+        }
+
+        if (email != null && !email.isBlank()) {
+            String loweredEmail = email.trim().toLowerCase(Locale.ROOT);
+            String emailLocalPart = loweredEmail.contains("@")
+                    ? loweredEmail.substring(0, loweredEmail.indexOf('@'))
+                    : loweredEmail;
+
+            if (loweredPassword.contains(loweredEmail) || loweredPassword.contains(emailLocalPart)) {
+                throw new BadRequestException("Password must not contain the email address");
+            }
+        }
+
+        Set<String> commonPasswords = Set.of(
+                "password",
+                "password123",
+                "123456",
+                "12345678",
+                "qwerty",
+                "qwerty123",
+                "admin",
+                "letmein",
+                "welcome",
+                "abc123"
+        );
+
+        if (commonPasswords.contains(loweredPassword)) {
+            throw new BadRequestException("Password is too common. Choose a stronger password");
+        }
     }
 }

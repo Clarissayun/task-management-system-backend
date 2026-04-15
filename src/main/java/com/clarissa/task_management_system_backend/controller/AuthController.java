@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -25,7 +26,7 @@ public class AuthController {
      * POST /api/auth/register
      */
     @PostMapping("/register")
-    public ResponseEntity<AuthResponse> register(@RequestBody RegisterRequest request) {
+    public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
         AuthResponse response = userService.register(request);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
@@ -35,7 +36,7 @@ public class AuthController {
      * POST /api/auth/login
      */
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest request) {
+    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         AuthResponse response = userService.login(request);
         return ResponseEntity.ok(response);
     }
@@ -68,7 +69,7 @@ public class AuthController {
     @PutMapping("/user/{userId}")
     public ResponseEntity<UserResponse> updateUser(
             @PathVariable String userId,
-            @RequestBody UserUpdateRequest request) {
+            @Valid @RequestBody UserUpdateRequest request) {
         UserResponse response = userService.updateUser(userId, request);
         return ResponseEntity.ok(response);
     }
@@ -81,7 +82,7 @@ public class AuthController {
     @PostMapping("/update-password/{userId}")
     public ResponseEntity<AuthResponse> updatePassword(
             @PathVariable String userId,
-            @RequestBody PasswordUpdateRequest request) {
+            @Valid @RequestBody PasswordUpdateRequest request) {
         AuthResponse response = userService.updatePassword(userId, request);
         return ResponseEntity.ok(response);
     }

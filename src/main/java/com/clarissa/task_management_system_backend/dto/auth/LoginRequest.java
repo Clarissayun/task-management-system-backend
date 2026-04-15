@@ -1,5 +1,6 @@
 package com.clarissa.task_management_system_backend.dto.auth;
 
+import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -9,6 +10,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class LoginRequest {
     
+    @NotBlank(message = "Username is required")
     private String username;
+    
+    @NotBlank(message = "Password is required")
     private String password;
 }
