@@ -27,7 +27,7 @@ public class TaskService {
         task.setUserId(userId);
         task.setTitle(request.getTitle());
         task.setDescription(request.getDescription());
-        task.setPriority(request.getPriority());
+        task.setPriority(request.getPriority() != null ? request.getPriority() : TaskPriority.LOW);
         task.setStatus(TaskStatus.TODO); // Default status
         task.setCreatedAt(LocalDateTime.now());
         task.setUpdatedAt(LocalDateTime.now());
@@ -84,7 +84,9 @@ public class TaskService {
         
         task.setTitle(request.getTitle());
         task.setDescription(request.getDescription());
-        task.setPriority(request.getPriority());
+        if (request.getPriority() != null) {
+            task.setPriority(request.getPriority());
+        }
         task.setUpdatedAt(LocalDateTime.now());
         
         Task updatedTask = taskRepository.save(task);
