@@ -16,6 +16,7 @@ public class Task {
     @Id
     private String id;
     private String userId; // Reference to the user who owns the task
+    private String projectId; // Reference to the project
     private String title;
     private String description;
     private TaskStatus status = TaskStatus.TODO; // Default status

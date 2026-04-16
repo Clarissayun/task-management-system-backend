@@ -14,6 +14,7 @@ public class TaskResponse {
     
     private String id;
     private String userId;
+    private String projectId;
     private String title;
     private String description;
     private TaskStatus status;

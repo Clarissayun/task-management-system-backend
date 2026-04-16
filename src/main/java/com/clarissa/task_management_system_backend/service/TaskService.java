@@ -6,6 +6,7 @@ import com.clarissa.task_management_system_backend.model.TaskPriority;
 import com.clarissa.task_management_system_backend.dto.task.TaskRequest;
 import com.clarissa.task_management_system_backend.dto.task.TaskResponse;
 import com.clarissa.task_management_system_backend.exception.ResourceNotFoundException;
+import com.clarissa.task_management_system_backend.repository.ProjectRepository;
 import com.clarissa.task_management_system_backend.repository.TaskRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -18,6 +19,9 @@ public class TaskService {
     
     @Autowired
     private TaskRepository taskRepository;
+
+    @Autowired
+    private ProjectRepository projectRepository;
     
     /**
      * Create a new task for a user
@@ -118,6 +122,116 @@ public class TaskService {
     public void deleteAllTasksByUserId(String userId) {
         taskRepository.deleteByUserId(userId);
     }
+
+    /**
+     * Create a new task within a project
+     */
+    public TaskResponse createTaskInProject(String userId, String projectId, TaskRequest request) {
+        ensureProjectOwnership(userId, projectId);
+
+        Task task = new Task();
+        task.setUserId(userId);
+        task.setProjectId(projectId);
+        task.setTitle(request.getTitle());
+        task.setDescription(request.getDescription());
+        task.setPriority(request.getPriority() != null ? request.getPriority() : TaskPriority.LOW);
+        task.setStatus(TaskStatus.TODO);
+        task.setCreatedAt(LocalDateTime.now());
+        task.setUpdatedAt(LocalDateTime.now());
+
+        Task savedTask = taskRepository.save(task);
+        return convertToResponse(savedTask);
+    }
+
+    /**
+     * Get all tasks within a project
+     */
+    public List<TaskResponse> getTasksByProjectId(String userId, String projectId) {
+        ensureProjectOwnership(userId, projectId);
+
+        return taskRepository.findByProjectId(projectId)
+                .stream()
+                .map(this::convertToResponse)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Get tasks by project ID and status
+     */
+    public List<TaskResponse> getTasksByProjectIdAndStatus(String userId, String projectId, TaskStatus status) {
+        ensureProjectOwnership(userId, projectId);
+
+        return taskRepository.findByProjectIdAndStatus(projectId, status)
+                .stream()
+                .map(this::convertToResponse)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Get tasks by project ID and priority
+     */
+    public List<TaskResponse> getTasksByProjectIdAndPriority(String userId, String projectId, TaskPriority priority) {
+        ensureProjectOwnership(userId, projectId);
+
+        return taskRepository.findByProjectIdAndPriority(projectId, priority)
+                .stream()
+                .map(this::convertToResponse)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Get a task within a project
+     */
+    public TaskResponse getTaskInProject(String userId, String projectId, String taskId) {
+        ensureProjectOwnership(userId, projectId);
+
+        Task task = findProjectTaskOrThrow(userId, projectId, taskId);
+        return convertToResponse(task);
+    }
+
+    /**
+     * Update a task within a project
+     */
+    public TaskResponse updateTaskInProject(String userId, String projectId, String taskId, TaskRequest request) {
+        ensureProjectOwnership(userId, projectId);
+
+        Task task = findProjectTaskOrThrow(userId, projectId, taskId);
+
+        task.setTitle(request.getTitle());
+        task.setDescription(request.getDescription());
+        if (request.getPriority() != null) {
+            task.setPriority(request.getPriority());
+        }
+        task.setUpdatedAt(LocalDateTime.now());
+
+        Task updatedTask = taskRepository.save(task);
+        return convertToResponse(updatedTask);
+    }
+
+    /**
+     * Update task status within a project
+     */
+    public TaskResponse updateTaskStatusInProject(String userId, String projectId, String taskId, TaskStatus status) {
+        ensureProjectOwnership(userId, projectId);
+
+        Task task = findProjectTaskOrThrow(userId, projectId, taskId);
+
+        task.setStatus(status);
+        task.setUpdatedAt(LocalDateTime.now());
+
+        Task updatedTask = taskRepository.save(task);
+        return convertToResponse(updatedTask);
+    }
+
+    /**
+     * Delete a task within a project
+     */
+    public void deleteTaskInProject(String userId, String projectId, String taskId) {
+        ensureProjectOwnership(userId, projectId);
+
+        Task task = findProjectTaskOrThrow(userId, projectId, taskId);
+        taskRepository.delete(task);
+    }
     
     /**
      * Convert Task entity to TaskResponse DTO
@@ -126,6 +240,7 @@ public class TaskService {
         return new TaskResponse(
             task.getId(),
             task.getUserId(),
+            task.getProjectId(),
             task.getTitle(),
             task.getDescription(),
             task.getStatus(),
@@ -138,5 +253,16 @@ public class TaskService {
     private Task findUserTaskOrThrow(String userId, String taskId) {
         return taskRepository.findByIdAndUserId(taskId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
+    }
+    
+    private Task findProjectTaskOrThrow(String userId, String projectId, String taskId) {
+        return taskRepository.findByIdAndProjectId(taskId, projectId)
+                .filter(task -> userId.equals(task.getUserId()))
+                .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
+    }
+
+    private void ensureProjectOwnership(String userId, String projectId) {
+        projectRepository.findByIdAndUserId(projectId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
     }
 }
