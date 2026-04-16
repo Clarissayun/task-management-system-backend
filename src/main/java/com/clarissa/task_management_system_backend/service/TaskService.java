@@ -69,18 +69,16 @@ public class TaskService {
     /**
      * Get a single task by ID
      */
-    public TaskResponse getTaskById(String taskId) {
-        Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
+    public TaskResponse getTaskById(String userId, String taskId) {
+        Task task = findUserTaskOrThrow(userId, taskId);
         return convertToResponse(task);
     }
     
     /**
      * Update a task
      */
-    public TaskResponse updateTask(String taskId, TaskRequest request) {
-        Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
+    public TaskResponse updateTask(String userId, String taskId, TaskRequest request) {
+        Task task = findUserTaskOrThrow(userId, taskId);
         
         task.setTitle(request.getTitle());
         task.setDescription(request.getDescription());
@@ -96,9 +94,8 @@ public class TaskService {
     /**
      * Update task status
      */
-    public TaskResponse updateTaskStatus(String taskId, TaskStatus status) {
-        Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
+    public TaskResponse updateTaskStatus(String userId, String taskId, TaskStatus status) {
+        Task task = findUserTaskOrThrow(userId, taskId);
         
         task.setStatus(status);
         task.setUpdatedAt(LocalDateTime.now());
@@ -110,8 +107,9 @@ public class TaskService {
     /**
      * Delete a task
      */
-    public void deleteTask(String taskId) {
-        taskRepository.deleteById(taskId);
+    public void deleteTask(String userId, String taskId) {
+        Task task = findUserTaskOrThrow(userId, taskId);
+        taskRepository.delete(task);
     }
     
     /**
@@ -135,5 +133,10 @@ public class TaskService {
             task.getCreatedAt(),
             task.getUpdatedAt()
         );
+    }
+
+    private Task findUserTaskOrThrow(String userId, String taskId) {
+        return taskRepository.findByIdAndUserId(taskId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
     }
 }

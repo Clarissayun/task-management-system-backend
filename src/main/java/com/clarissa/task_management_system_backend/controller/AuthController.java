@@ -3,15 +3,19 @@ package com.clarissa.task_management_system_backend.controller;
 import com.clarissa.task_management_system_backend.dto.auth.RegisterRequest;
 import com.clarissa.task_management_system_backend.dto.auth.LoginRequest;
 import com.clarissa.task_management_system_backend.dto.auth.AuthResponse;
+import com.clarissa.task_management_system_backend.dto.auth.RefreshTokenRequest;
 import com.clarissa.task_management_system_backend.dto.user.UserResponse;
 import com.clarissa.task_management_system_backend.dto.user.UserUpdateRequest;
 import com.clarissa.task_management_system_backend.dto.user.PasswordUpdateRequest;
+import com.clarissa.task_management_system_backend.exception.BadRequestException;
 import com.clarissa.task_management_system_backend.service.UserService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -40,13 +44,26 @@ public class AuthController {
         AuthResponse response = userService.login(request);
         return ResponseEntity.ok(response);
     }
+
+    /**
+     * Refresh access token using refresh token
+     * POST /api/auth/refresh
+     */
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponse> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
+        AuthResponse response = userService.refreshToken(request.getRefreshToken());
+        return ResponseEntity.ok(response);
+    }
     
     /**
      * Get user profile by ID
      * GET /api/auth/user/{userId}
      */
     @GetMapping("/user/{userId}")
-    public ResponseEntity<UserResponse> getUserById(@PathVariable String userId) {
+    public ResponseEntity<UserResponse> getUserById(
+            @PathVariable String userId,
+            Authentication authentication) {
+        verifyCurrentUser(authentication, userId);
         UserResponse response = userService.getUserById(userId);
         return ResponseEntity.ok(response);
     }
@@ -56,7 +73,15 @@ public class AuthController {
      * GET /api/auth/user/username/{username}
      */
     @GetMapping("/user/username/{username}")
-    public ResponseEntity<UserResponse> getUserByUsername(@PathVariable String username) {
+    public ResponseEntity<UserResponse> getUserByUsername(
+            @PathVariable String username,
+            Authentication authentication) {
+        String currentUserId = getCurrentUserId(authentication);
+        UserResponse currentUser = userService.getUserById(currentUserId);
+        if (!currentUser.getUsername().equals(username)) {
+            throw new AccessDeniedException("You can only access your own profile");
+        }
+
         UserResponse response = userService.getUserByUsername(username);
         return ResponseEntity.ok(response);
     }
@@ -69,7 +94,9 @@ public class AuthController {
     @PutMapping("/user/{userId}")
     public ResponseEntity<UserResponse> updateUser(
             @PathVariable String userId,
-            @Valid @RequestBody UserUpdateRequest request) {
+            @Valid @RequestBody UserUpdateRequest request,
+            Authentication authentication) {
+        verifyCurrentUser(authentication, userId);
         UserResponse response = userService.updateUser(userId, request);
         return ResponseEntity.ok(response);
     }
@@ -82,8 +109,24 @@ public class AuthController {
     @PostMapping("/update-password/{userId}")
     public ResponseEntity<AuthResponse> updatePassword(
             @PathVariable String userId,
-            @Valid @RequestBody PasswordUpdateRequest request) {
+            @Valid @RequestBody PasswordUpdateRequest request,
+            Authentication authentication) {
+        verifyCurrentUser(authentication, userId);
         AuthResponse response = userService.updatePassword(userId, request);
         return ResponseEntity.ok(response);
+    }
+
+    private void verifyCurrentUser(Authentication authentication, String userId) {
+        String authenticatedUserId = getCurrentUserId(authentication);
+        if (!authenticatedUserId.equals(userId)) {
+            throw new AccessDeniedException("You can only access your own account");
+        }
+    }
+
+    private String getCurrentUserId(Authentication authentication) {
+        if (authentication == null || authentication.getName() == null) {
+            throw new BadRequestException("Unable to resolve authenticated user");
+        }
+        return authentication.getName();
     }
 }

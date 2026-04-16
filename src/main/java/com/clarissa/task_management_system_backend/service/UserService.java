@@ -4,6 +4,7 @@ import com.clarissa.task_management_system_backend.model.User;
 import com.clarissa.task_management_system_backend.dto.auth.RegisterRequest;
 import com.clarissa.task_management_system_backend.dto.auth.LoginRequest;
 import com.clarissa.task_management_system_backend.dto.auth.AuthResponse;
+import com.clarissa.task_management_system_backend.config.JwtTokenProvider;
 import com.clarissa.task_management_system_backend.dto.user.UserResponse;
 import com.clarissa.task_management_system_backend.dto.user.UserUpdateRequest;
 import com.clarissa.task_management_system_backend.dto.user.PasswordUpdateRequest;
@@ -25,6 +26,9 @@ public class UserService {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private JwtTokenProvider jwtTokenProvider;
     
     /**
      * Register a new user
@@ -54,12 +58,7 @@ public class UserService {
         
         User savedUser = userRepository.save(user);
         
-        return new AuthResponse(
-            "User registered successfully",
-            savedUser.getId(),
-            savedUser.getUsername(),
-            savedUser.getEmail()
-        );
+        return buildAuthResponseWithTokens("User registered successfully", savedUser);
     }
     
     /**
@@ -76,12 +75,22 @@ public class UserService {
 
         migratePasswordIfNeeded(user, request.getPassword());
         
-        return new AuthResponse(
-            "Login successful",
-            user.getId(),
-            user.getUsername(),
-            user.getEmail()
-        );
+        return buildAuthResponseWithTokens("Login successful", user);
+    }
+
+    /**
+     * Refresh access token using refresh token.
+     */
+    public AuthResponse refreshToken(String refreshToken) {
+        if (!jwtTokenProvider.validateRefreshToken(refreshToken)) {
+            throw new BadRequestException("Invalid or expired refresh token");
+        }
+
+        String userId = jwtTokenProvider.getUserIdFromRefreshToken(refreshToken);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        return buildAuthResponseWithTokens("Token refreshed successfully", user);
     }
     
     /**
@@ -273,5 +282,22 @@ public class UserService {
         if (commonPasswords.contains(loweredPassword)) {
             throw new BadRequestException("Password is too common. Choose a stronger password");
         }
+    }
+
+    private AuthResponse buildAuthResponseWithTokens(String message, User user) {
+        String accessToken = jwtTokenProvider.generateAccessToken(user);
+        String refreshToken = jwtTokenProvider.generateRefreshToken(user);
+
+        return new AuthResponse(
+                message,
+                user.getId(),
+                user.getUsername(),
+                user.getEmail(),
+                "Bearer",
+                accessToken,
+                refreshToken,
+                jwtTokenProvider.getAccessTokenExpirationMs(),
+                jwtTokenProvider.getRefreshTokenExpirationMs()
+        );
     }
 }

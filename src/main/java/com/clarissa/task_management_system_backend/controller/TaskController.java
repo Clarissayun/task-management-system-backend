@@ -4,8 +4,11 @@ import com.clarissa.task_management_system_backend.model.TaskStatus;
 import com.clarissa.task_management_system_backend.model.TaskPriority;
 import com.clarissa.task_management_system_backend.dto.task.TaskRequest;
 import com.clarissa.task_management_system_backend.dto.task.TaskResponse;
+import com.clarissa.task_management_system_backend.exception.BadRequestException;
 import com.clarissa.task_management_system_backend.service.TaskService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -25,9 +28,11 @@ public class TaskController {
      */
     @PostMapping
     public ResponseEntity<TaskResponse> createTask(
-            @RequestParam String userId,
+            @RequestParam(required = false) String userId,
+            Authentication authentication,
             @RequestBody TaskRequest request) {
-        TaskResponse response = taskService.createTask(userId, request);
+        String effectiveUserId = resolveUserId(authentication, userId);
+        TaskResponse response = taskService.createTask(effectiveUserId, request);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
     
@@ -36,8 +41,11 @@ public class TaskController {
      * GET /api/tasks?userId={userId}
      */
     @GetMapping
-    public ResponseEntity<List<TaskResponse>> getTasksByUserId(@RequestParam String userId) {
-        List<TaskResponse> tasks = taskService.getTasksByUserId(userId);
+    public ResponseEntity<List<TaskResponse>> getTasksByUserId(
+            @RequestParam(required = false) String userId,
+            Authentication authentication) {
+        String effectiveUserId = resolveUserId(authentication, userId);
+        List<TaskResponse> tasks = taskService.getTasksByUserId(effectiveUserId);
         return ResponseEntity.ok(tasks);
     }
     
@@ -48,9 +56,11 @@ public class TaskController {
      */
     @GetMapping("/status")
     public ResponseEntity<List<TaskResponse>> getTasksByUserIdAndStatus(
-            @RequestParam String userId,
+            @RequestParam(required = false) String userId,
+            Authentication authentication,
             @RequestParam TaskStatus status) {
-        List<TaskResponse> tasks = taskService.getTasksByUserIdAndStatus(userId, status);
+        String effectiveUserId = resolveUserId(authentication, userId);
+        List<TaskResponse> tasks = taskService.getTasksByUserIdAndStatus(effectiveUserId, status);
         return ResponseEntity.ok(tasks);
     }
     
@@ -61,9 +71,11 @@ public class TaskController {
      */
     @GetMapping("/priority")
     public ResponseEntity<List<TaskResponse>> getTasksByUserIdAndPriority(
-            @RequestParam String userId,
+            @RequestParam(required = false) String userId,
+            Authentication authentication,
             @RequestParam TaskPriority priority) {
-        List<TaskResponse> tasks = taskService.getTasksByUserIdAndPriority(userId, priority);
+        String effectiveUserId = resolveUserId(authentication, userId);
+        List<TaskResponse> tasks = taskService.getTasksByUserIdAndPriority(effectiveUserId, priority);
         return ResponseEntity.ok(tasks);
     }
     
@@ -72,8 +84,11 @@ public class TaskController {
      * GET /api/tasks/{taskId}
      */
     @GetMapping("/{taskId}")
-    public ResponseEntity<TaskResponse> getTaskById(@PathVariable String taskId) {
-        TaskResponse task = taskService.getTaskById(taskId);
+    public ResponseEntity<TaskResponse> getTaskById(
+            @PathVariable String taskId,
+            Authentication authentication) {
+        String userId = resolveUserId(authentication, null);
+        TaskResponse task = taskService.getTaskById(userId, taskId);
         return ResponseEntity.ok(task);
     }
     
@@ -84,8 +99,10 @@ public class TaskController {
     @PutMapping("/{taskId}")
     public ResponseEntity<TaskResponse> updateTask(
             @PathVariable String taskId,
+            Authentication authentication,
             @RequestBody TaskRequest request) {
-        TaskResponse response = taskService.updateTask(taskId, request);
+        String userId = resolveUserId(authentication, null);
+        TaskResponse response = taskService.updateTask(userId, taskId, request);
         return ResponseEntity.ok(response);
     }
     
@@ -97,8 +114,10 @@ public class TaskController {
     @PutMapping("/{taskId}/status")
     public ResponseEntity<TaskResponse> updateTaskStatus(
             @PathVariable String taskId,
+            Authentication authentication,
             @RequestParam TaskStatus status) {
-        TaskResponse response = taskService.updateTaskStatus(taskId, status);
+        String userId = resolveUserId(authentication, null);
+        TaskResponse response = taskService.updateTaskStatus(userId, taskId, status);
         return ResponseEntity.ok(response);
     }
     
@@ -107,8 +126,11 @@ public class TaskController {
      * DELETE /api/tasks/{taskId}
      */
     @DeleteMapping("/{taskId}")
-    public ResponseEntity<Void> deleteTask(@PathVariable String taskId) {
-        taskService.deleteTask(taskId);
+    public ResponseEntity<Void> deleteTask(
+            @PathVariable String taskId,
+            Authentication authentication) {
+        String userId = resolveUserId(authentication, null);
+        taskService.deleteTask(userId, taskId);
         return ResponseEntity.noContent().build();
     }
     
@@ -117,8 +139,29 @@ public class TaskController {
      * DELETE /api/tasks?userId={userId}
      */
     @DeleteMapping
-    public ResponseEntity<Void> deleteAllTasksByUserId(@RequestParam String userId) {
-        taskService.deleteAllTasksByUserId(userId);
+    public ResponseEntity<Void> deleteAllTasksByUserId(
+            @RequestParam(required = false) String userId,
+            Authentication authentication) {
+        String effectiveUserId = resolveUserId(authentication, userId);
+        taskService.deleteAllTasksByUserId(effectiveUserId);
         return ResponseEntity.noContent().build();
+    }
+
+    private String resolveUserId(Authentication authentication, String requestedUserId) {
+        if (authentication == null || authentication.getName() == null) {
+            throw new BadRequestException("Unable to resolve authenticated user");
+        }
+
+        String authenticatedUserId = authentication.getName();
+
+        if (requestedUserId == null || requestedUserId.isBlank()) {
+            return authenticatedUserId;
+        }
+
+        if (!authenticatedUserId.equals(requestedUserId)) {
+            throw new AccessDeniedException("You can only access your own tasks");
+        }
+
+        return authenticatedUserId;
     }
 }
