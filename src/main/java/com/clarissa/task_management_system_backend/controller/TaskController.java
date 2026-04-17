@@ -6,6 +6,7 @@ import com.clarissa.task_management_system_backend.dto.task.TaskRequest;
 import com.clarissa.task_management_system_backend.dto.task.TaskResponse;
 import com.clarissa.task_management_system_backend.exception.BadRequestException;
 import com.clarissa.task_management_system_backend.service.TaskService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
@@ -30,7 +31,7 @@ public class TaskController {
     public ResponseEntity<TaskResponse> createTask(
             @RequestParam(required = false) String userId,
             Authentication authentication,
-            @RequestBody TaskRequest request) {
+            @Valid @RequestBody TaskRequest request) {
         String effectiveUserId = resolveUserId(authentication, userId);
         TaskResponse response = taskService.createTask(effectiveUserId, request);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
@@ -100,7 +101,7 @@ public class TaskController {
     public ResponseEntity<TaskResponse> updateTask(
             @PathVariable String taskId,
             Authentication authentication,
-            @RequestBody TaskRequest request) {
+            @Valid @RequestBody TaskRequest request) {
         String userId = resolveUserId(authentication, null);
         TaskResponse response = taskService.updateTask(userId, taskId, request);
         return ResponseEntity.ok(response);

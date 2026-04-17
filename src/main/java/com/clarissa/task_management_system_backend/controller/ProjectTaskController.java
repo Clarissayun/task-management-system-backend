@@ -6,6 +6,7 @@ import com.clarissa.task_management_system_backend.exception.BadRequestException
 import com.clarissa.task_management_system_backend.model.TaskPriority;
 import com.clarissa.task_management_system_backend.model.TaskStatus;
 import com.clarissa.task_management_system_backend.service.TaskService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -27,7 +28,7 @@ public class ProjectTaskController {
     public ResponseEntity<TaskResponse> createTaskInProject(
             @PathVariable String projectId,
             Authentication authentication,
-            @RequestBody TaskRequest request) {
+            @Valid @RequestBody TaskRequest request) {
         String userId = resolveUserId(authentication);
         TaskResponse response = taskService.createTaskInProject(userId, projectId, request);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
@@ -77,7 +78,7 @@ public class ProjectTaskController {
             @PathVariable String projectId,
             @PathVariable String taskId,
             Authentication authentication,
-            @RequestBody TaskRequest request) {
+            @Valid @RequestBody TaskRequest request) {
         String userId = resolveUserId(authentication);
         TaskResponse response = taskService.updateTaskInProject(userId, projectId, taskId, request);
         return ResponseEntity.ok(response);
