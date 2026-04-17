@@ -19,4 +19,7 @@ public class TaskRequest {
     private String description;
 
     private TaskPriority priority;
+
+    @Size(max = 100, message = "Project id must be at most 100 characters")
+    private String projectId;
 }

@@ -26,9 +26,15 @@ public class TaskService {
     /**
      * Create a new task for a user
      */
-    public TaskResponse createTask(String userId, TaskRequest request) {
+    public TaskResponse createTask(String userId, String projectId, TaskRequest request) {
+        String effectiveProjectId = normalizeProjectId(projectId != null ? projectId : request.getProjectId());
+        if (effectiveProjectId != null) {
+            ensureProjectOwnership(userId, effectiveProjectId);
+        }
+
         Task task = new Task();
         task.setUserId(userId);
+        task.setProjectId(effectiveProjectId);
         task.setTitle(request.getTitle());
         task.setDescription(request.getDescription());
         task.setPriority(request.getPriority() != null ? request.getPriority() : TaskPriority.LOW);
@@ -41,30 +47,61 @@ public class TaskService {
     }
     
     /**
-     * Get all tasks for a user
+     * Get tasks for a user. When projectId is provided, only project-scoped tasks are returned.
+     * When projectId is absent, only standalone tasks are returned.
      */
-    public List<TaskResponse> getTasksByUserId(String userId) {
-        return taskRepository.findByUserId(userId)
+    public List<TaskResponse> getTasksByUserId(String userId, String projectId) {
+        List<Task> tasks;
+        String effectiveProjectId = normalizeProjectId(projectId);
+
+        if (effectiveProjectId != null) {
+            ensureProjectOwnership(userId, effectiveProjectId);
+            tasks = taskRepository.findByUserIdAndProjectId(userId, effectiveProjectId);
+        } else {
+            tasks = taskRepository.findByUserIdAndProjectIdIsNull(userId);
+        }
+
+        return tasks
                 .stream()
                 .map(this::convertToResponse)
                 .collect(Collectors.toList());
     }
     
     /**
-     * Get tasks by user ID and status
+     * Get tasks by user ID, optional project ID, and status
      */
-    public List<TaskResponse> getTasksByUserIdAndStatus(String userId, TaskStatus status) {
-        return taskRepository.findByUserIdAndStatus(userId, status)
+    public List<TaskResponse> getTasksByUserIdAndStatus(String userId, String projectId, TaskStatus status) {
+        List<Task> tasks;
+        String effectiveProjectId = normalizeProjectId(projectId);
+
+        if (effectiveProjectId != null) {
+            ensureProjectOwnership(userId, effectiveProjectId);
+            tasks = taskRepository.findByUserIdAndProjectIdAndStatus(userId, effectiveProjectId, status);
+        } else {
+            tasks = taskRepository.findByUserIdAndProjectIdIsNullAndStatus(userId, status);
+        }
+
+        return tasks
                 .stream()
                 .map(this::convertToResponse)
                 .collect(Collectors.toList());
     }
     
     /**
-     * Get tasks by user ID and priority
+     * Get tasks by user ID, optional project ID, and priority
      */
-    public List<TaskResponse> getTasksByUserIdAndPriority(String userId, TaskPriority priority) {
-        return taskRepository.findByUserIdAndPriority(userId, priority)
+    public List<TaskResponse> getTasksByUserIdAndPriority(String userId, String projectId, TaskPriority priority) {
+        List<Task> tasks;
+        String effectiveProjectId = normalizeProjectId(projectId);
+
+        if (effectiveProjectId != null) {
+            ensureProjectOwnership(userId, effectiveProjectId);
+            tasks = taskRepository.findByUserIdAndProjectIdAndPriority(userId, effectiveProjectId, priority);
+        } else {
+            tasks = taskRepository.findByUserIdAndProjectIdIsNullAndPriority(userId, priority);
+        }
+
+        return tasks
                 .stream()
                 .map(this::convertToResponse)
                 .collect(Collectors.toList());
@@ -83,6 +120,16 @@ public class TaskService {
      */
     public TaskResponse updateTask(String userId, String taskId, TaskRequest request) {
         Task task = findUserTaskOrThrow(userId, taskId);
+
+        String requestedProjectId = normalizeProjectId(request.getProjectId());
+        if (request.getProjectId() != null) {
+            if (requestedProjectId != null) {
+                ensureProjectOwnership(userId, requestedProjectId);
+                task.setProjectId(requestedProjectId);
+            } else {
+                task.setProjectId(null);
+            }
+        }
         
         task.setTitle(request.getTitle());
         task.setDescription(request.getDescription());
@@ -117,120 +164,18 @@ public class TaskService {
     }
     
     /**
-     * Delete all tasks for a user
+     * Delete tasks for a user. When projectId is provided, only tasks in that project are deleted.
+     * When projectId is absent, only standalone tasks are deleted.
      */
-    public void deleteAllTasksByUserId(String userId) {
-        taskRepository.deleteByUserId(userId);
-    }
-
-    /**
-     * Create a new task within a project
-     */
-    public TaskResponse createTaskInProject(String userId, String projectId, TaskRequest request) {
-        ensureProjectOwnership(userId, projectId);
-
-        Task task = new Task();
-        task.setUserId(userId);
-        task.setProjectId(projectId);
-        task.setTitle(request.getTitle());
-        task.setDescription(request.getDescription());
-        task.setPriority(request.getPriority() != null ? request.getPriority() : TaskPriority.LOW);
-        task.setStatus(TaskStatus.TODO);
-        task.setCreatedAt(LocalDateTime.now());
-        task.setUpdatedAt(LocalDateTime.now());
-
-        Task savedTask = taskRepository.save(task);
-        return convertToResponse(savedTask);
-    }
-
-    /**
-     * Get all tasks within a project
-     */
-    public List<TaskResponse> getTasksByProjectId(String userId, String projectId) {
-        ensureProjectOwnership(userId, projectId);
-
-        return taskRepository.findByProjectId(projectId)
-                .stream()
-                .map(this::convertToResponse)
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * Get tasks by project ID and status
-     */
-    public List<TaskResponse> getTasksByProjectIdAndStatus(String userId, String projectId, TaskStatus status) {
-        ensureProjectOwnership(userId, projectId);
-
-        return taskRepository.findByProjectIdAndStatus(projectId, status)
-                .stream()
-                .map(this::convertToResponse)
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * Get tasks by project ID and priority
-     */
-    public List<TaskResponse> getTasksByProjectIdAndPriority(String userId, String projectId, TaskPriority priority) {
-        ensureProjectOwnership(userId, projectId);
-
-        return taskRepository.findByProjectIdAndPriority(projectId, priority)
-                .stream()
-                .map(this::convertToResponse)
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * Get a task within a project
-     */
-    public TaskResponse getTaskInProject(String userId, String projectId, String taskId) {
-        ensureProjectOwnership(userId, projectId);
-
-        Task task = findProjectTaskOrThrow(userId, projectId, taskId);
-        return convertToResponse(task);
-    }
-
-    /**
-     * Update a task within a project
-     */
-    public TaskResponse updateTaskInProject(String userId, String projectId, String taskId, TaskRequest request) {
-        ensureProjectOwnership(userId, projectId);
-
-        Task task = findProjectTaskOrThrow(userId, projectId, taskId);
-
-        task.setTitle(request.getTitle());
-        task.setDescription(request.getDescription());
-        if (request.getPriority() != null) {
-            task.setPriority(request.getPriority());
+    public void deleteAllTasksByUserId(String userId, String projectId) {
+        String effectiveProjectId = normalizeProjectId(projectId);
+        if (effectiveProjectId != null) {
+            ensureProjectOwnership(userId, effectiveProjectId);
+            taskRepository.deleteByUserIdAndProjectId(userId, effectiveProjectId);
+            return;
         }
-        task.setUpdatedAt(LocalDateTime.now());
 
-        Task updatedTask = taskRepository.save(task);
-        return convertToResponse(updatedTask);
-    }
-
-    /**
-     * Update task status within a project
-     */
-    public TaskResponse updateTaskStatusInProject(String userId, String projectId, String taskId, TaskStatus status) {
-        ensureProjectOwnership(userId, projectId);
-
-        Task task = findProjectTaskOrThrow(userId, projectId, taskId);
-
-        task.setStatus(status);
-        task.setUpdatedAt(LocalDateTime.now());
-
-        Task updatedTask = taskRepository.save(task);
-        return convertToResponse(updatedTask);
-    }
-
-    /**
-     * Delete a task within a project
-     */
-    public void deleteTaskInProject(String userId, String projectId, String taskId) {
-        ensureProjectOwnership(userId, projectId);
-
-        Task task = findProjectTaskOrThrow(userId, projectId, taskId);
-        taskRepository.delete(task);
+        taskRepository.deleteByUserIdAndProjectIdIsNull(userId);
     }
     
     /**
@@ -254,15 +199,18 @@ public class TaskService {
         return taskRepository.findByIdAndUserId(taskId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
     }
-    
-    private Task findProjectTaskOrThrow(String userId, String projectId, String taskId) {
-        return taskRepository.findByIdAndProjectId(taskId, projectId)
-                .filter(task -> userId.equals(task.getUserId()))
-                .orElseThrow(() -> new ResourceNotFoundException("Task not found"));
-    }
 
     private void ensureProjectOwnership(String userId, String projectId) {
         projectRepository.findByIdAndUserId(projectId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
+    }
+
+    private String normalizeProjectId(String projectId) {
+        if (projectId == null) {
+            return null;
+        }
+
+        String normalized = projectId.trim();
+        return normalized.isEmpty() ? null : normalized;
     }
 }

@@ -12,23 +12,30 @@ import java.util.Optional;
 public interface TaskRepository extends MongoRepository<Task, String> {
     
     List<Task> findByUserId(String userId);
+
+    List<Task> findByUserIdAndProjectId(String userId, String projectId);
+
+    List<Task> findByUserIdAndProjectIdIsNull(String userId);
     
     List<Task> findByUserIdAndStatus(String userId, TaskStatus status);
+
+    List<Task> findByUserIdAndProjectIdAndStatus(String userId, String projectId, TaskStatus status);
+
+    List<Task> findByUserIdAndProjectIdIsNullAndStatus(String userId, TaskStatus status);
     
     List<Task> findByUserIdAndPriority(String userId, TaskPriority priority);
 
+    List<Task> findByUserIdAndProjectIdAndPriority(String userId, String projectId, TaskPriority priority);
+
+    List<Task> findByUserIdAndProjectIdIsNullAndPriority(String userId, TaskPriority priority);
+
     Optional<Task> findByIdAndUserId(String taskId, String userId);
     
-    // Project-based queries
-    List<Task> findByProjectId(String projectId);
-    
-    List<Task> findByProjectIdAndStatus(String projectId, TaskStatus status);
-    
-    List<Task> findByProjectIdAndPriority(String projectId, TaskPriority priority);
-    
-    Optional<Task> findByIdAndProjectId(String taskId, String projectId);
-    
     void deleteByProjectId(String projectId);
+
+    void deleteByUserIdAndProjectId(String userId, String projectId);
+
+    void deleteByUserIdAndProjectIdIsNull(String userId);
     
     void deleteByUserId(String userId);
 }

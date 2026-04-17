@@ -30,10 +30,11 @@ public class TaskController {
     @PostMapping
     public ResponseEntity<TaskResponse> createTask(
             @RequestParam(required = false) String userId,
+            @RequestParam(required = false) String projectId,
             Authentication authentication,
             @Valid @RequestBody TaskRequest request) {
         String effectiveUserId = resolveUserId(authentication, userId);
-        TaskResponse response = taskService.createTask(effectiveUserId, request);
+        TaskResponse response = taskService.createTask(effectiveUserId, projectId, request);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
     
@@ -44,9 +45,10 @@ public class TaskController {
     @GetMapping
     public ResponseEntity<List<TaskResponse>> getTasksByUserId(
             @RequestParam(required = false) String userId,
+            @RequestParam(required = false) String projectId,
             Authentication authentication) {
         String effectiveUserId = resolveUserId(authentication, userId);
-        List<TaskResponse> tasks = taskService.getTasksByUserId(effectiveUserId);
+        List<TaskResponse> tasks = taskService.getTasksByUserId(effectiveUserId, projectId);
         return ResponseEntity.ok(tasks);
     }
     
@@ -58,10 +60,11 @@ public class TaskController {
     @GetMapping("/status")
     public ResponseEntity<List<TaskResponse>> getTasksByUserIdAndStatus(
             @RequestParam(required = false) String userId,
+            @RequestParam(required = false) String projectId,
             Authentication authentication,
             @RequestParam TaskStatus status) {
         String effectiveUserId = resolveUserId(authentication, userId);
-        List<TaskResponse> tasks = taskService.getTasksByUserIdAndStatus(effectiveUserId, status);
+        List<TaskResponse> tasks = taskService.getTasksByUserIdAndStatus(effectiveUserId, projectId, status);
         return ResponseEntity.ok(tasks);
     }
     
@@ -73,10 +76,11 @@ public class TaskController {
     @GetMapping("/priority")
     public ResponseEntity<List<TaskResponse>> getTasksByUserIdAndPriority(
             @RequestParam(required = false) String userId,
+            @RequestParam(required = false) String projectId,
             Authentication authentication,
             @RequestParam TaskPriority priority) {
         String effectiveUserId = resolveUserId(authentication, userId);
-        List<TaskResponse> tasks = taskService.getTasksByUserIdAndPriority(effectiveUserId, priority);
+        List<TaskResponse> tasks = taskService.getTasksByUserIdAndPriority(effectiveUserId, projectId, priority);
         return ResponseEntity.ok(tasks);
     }
     
@@ -142,9 +146,10 @@ public class TaskController {
     @DeleteMapping
     public ResponseEntity<Void> deleteAllTasksByUserId(
             @RequestParam(required = false) String userId,
+            @RequestParam(required = false) String projectId,
             Authentication authentication) {
         String effectiveUserId = resolveUserId(authentication, userId);
-        taskService.deleteAllTasksByUserId(effectiveUserId);
+        taskService.deleteAllTasksByUserId(effectiveUserId, projectId);
         return ResponseEntity.noContent().build();
     }
 
