@@ -5,6 +5,7 @@ import com.clarissa.task_management_system_backend.model.TaskPriority;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
@@ -17,6 +18,7 @@ public class TaskResponse {
     private String projectId;
     private String title;
     private String description;
+    private LocalDate dueDate;
     private TaskStatus status;
     private TaskPriority priority;
     private LocalDateTime createdAt;

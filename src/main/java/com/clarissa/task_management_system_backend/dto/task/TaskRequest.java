@@ -2,10 +2,12 @@ package com.clarissa.task_management_system_backend.dto.task;
 
 import com.clarissa.task_management_system_backend.model.TaskPriority;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import java.time.LocalDate;
 
 @Data
 @NoArgsConstructor
@@ -22,4 +24,7 @@ public class TaskRequest {
 
     @Size(max = 100, message = "Project id must be at most 100 characters")
     private String projectId;
+
+    @NotNull(message = "Task due date is required")
+    private LocalDate dueDate;
 }

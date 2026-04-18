@@ -4,6 +4,7 @@ import com.clarissa.task_management_system_backend.model.ProjectStatus;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
@@ -15,6 +16,8 @@ public class ProjectResponse {
     private String name;
     private String description;
     private ProjectStatus status;
+    private LocalDate startDate;
+    private LocalDate dueDate;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

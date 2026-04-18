@@ -1,15 +1,18 @@
 package com.clarissa.task_management_system_backend.service;
 
 import com.clarissa.task_management_system_backend.model.Task;
+import com.clarissa.task_management_system_backend.model.Project;
 import com.clarissa.task_management_system_backend.model.TaskStatus;
 import com.clarissa.task_management_system_backend.model.TaskPriority;
 import com.clarissa.task_management_system_backend.dto.task.TaskRequest;
 import com.clarissa.task_management_system_backend.dto.task.TaskResponse;
+import com.clarissa.task_management_system_backend.exception.BadRequestException;
 import com.clarissa.task_management_system_backend.exception.ResourceNotFoundException;
 import com.clarissa.task_management_system_backend.repository.ProjectRepository;
 import com.clarissa.task_management_system_backend.repository.TaskRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -41,7 +44,7 @@ public class TaskService {
     public TaskResponse createTask(String userId, String projectId, TaskRequest request) {
         String effectiveProjectId = normalizeProjectId(projectId != null ? projectId : request.getProjectId());
         if (effectiveProjectId != null) {
-            ensureProjectOwnership(userId, effectiveProjectId);
+            validateTaskDueDateAgainstProject(userId, effectiveProjectId, request.getDueDate());
         }
 
         Task task = new Task();
@@ -49,6 +52,7 @@ public class TaskService {
         task.setProjectId(effectiveProjectId);
         task.setTitle(request.getTitle());
         task.setDescription(request.getDescription());
+        task.setDueDate(request.getDueDate());
         task.setPriority(request.getPriority() != null ? request.getPriority() : TaskPriority.LOW);
         task.setStatus(TaskStatus.TODO); // Default status
         task.setCreatedAt(LocalDateTime.now());
@@ -134,17 +138,23 @@ public class TaskService {
         Task task = findUserTaskOrThrow(userId, taskId);
 
         String requestedProjectId = normalizeProjectId(request.getProjectId());
+        String effectiveProjectId = requestedProjectId != null ? requestedProjectId : normalizeProjectId(task.getProjectId());
+
         if (request.getProjectId() != null) {
             if (requestedProjectId != null) {
-                ensureProjectOwnership(userId, requestedProjectId);
                 task.setProjectId(requestedProjectId);
             } else {
                 task.setProjectId(null);
             }
         }
+
+        if (effectiveProjectId != null) {
+            validateTaskDueDateAgainstProject(userId, effectiveProjectId, request.getDueDate());
+        }
         
         task.setTitle(request.getTitle());
         task.setDescription(request.getDescription());
+        task.setDueDate(request.getDueDate());
         if (request.getPriority() != null) {
             task.setPriority(request.getPriority());
         }
@@ -227,6 +237,7 @@ public class TaskService {
             task.getProjectId(),
             task.getTitle(),
             task.getDescription(),
+            task.getDueDate(),
             task.getStatus(),
             task.getPriority(),
             task.getCreatedAt(),
@@ -251,6 +262,26 @@ public class TaskService {
 
         String normalized = projectId.trim();
         return normalized.isEmpty() ? null : normalized;
+    }
+
+    private void validateTaskDueDateAgainstProject(String userId, String projectId, LocalDate taskDueDate) {
+        if (taskDueDate == null) {
+            throw new BadRequestException("Task due date is required");
+        }
+
+        Project project = projectRepository.findByIdAndUserId(projectId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
+
+        LocalDate startDate = project.getStartDate();
+        LocalDate dueDate = project.getDueDate();
+
+        if (startDate == null || dueDate == null) {
+            throw new BadRequestException("Project timeline is not configured");
+        }
+
+        if (taskDueDate.isBefore(startDate) || taskDueDate.isAfter(dueDate)) {
+            throw new BadRequestException("Task due date must be within the project timeline");
+        }
     }
 
     private Query buildTaskSearchQuery(String userId, String projectId, TaskStatus status, TaskPriority priority, String search) {

@@ -5,6 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Document(collection = "tasks")
@@ -19,6 +20,7 @@ public class Task {
     private String projectId; // Reference to the project
     private String title;
     private String description;
+    private LocalDate dueDate;
     private TaskStatus status = TaskStatus.TODO; // Default status
     private TaskPriority priority = TaskPriority.LOW; // Default priority
     private LocalDateTime createdAt = LocalDateTime.now();

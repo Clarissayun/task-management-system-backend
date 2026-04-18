@@ -2,13 +2,16 @@ package com.clarissa.task_management_system_backend.service;
 
 import com.clarissa.task_management_system_backend.model.Project;
 import com.clarissa.task_management_system_backend.model.ProjectStatus;
+import com.clarissa.task_management_system_backend.model.Task;
 import com.clarissa.task_management_system_backend.dto.project.ProjectRequest;
 import com.clarissa.task_management_system_backend.dto.project.ProjectResponse;
+import com.clarissa.task_management_system_backend.exception.BadRequestException;
 import com.clarissa.task_management_system_backend.exception.ResourceNotFoundException;
 import com.clarissa.task_management_system_backend.repository.ProjectRepository;
 import com.clarissa.task_management_system_backend.repository.TaskRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -38,11 +41,15 @@ public class ProjectService {
      * Create a new project for a user
      */
     public ProjectResponse createProject(String userId, ProjectRequest request) {
+        validateProjectTimeline(request.getStartDate(), request.getDueDate());
+
         Project project = new Project();
         project.setUserId(userId);
         project.setName(request.getName());
         project.setDescription(request.getDescription());
         project.setStatus(request.getStatus() != null ? request.getStatus() : ProjectStatus.ACTIVE);
+        project.setStartDate(request.getStartDate());
+        project.setDueDate(request.getDueDate());
         project.setCreatedAt(LocalDateTime.now());
         project.setUpdatedAt(LocalDateTime.now());
         
@@ -83,13 +90,19 @@ public class ProjectService {
      */
     public ProjectResponse updateProject(String userId, String projectId, ProjectRequest request) {
         Project project = findUserProjectOrThrow(userId, projectId);
+
+        validateProjectTimeline(request.getStartDate(), request.getDueDate());
         
         project.setName(request.getName());
         project.setDescription(request.getDescription());
         if (request.getStatus() != null) {
             project.setStatus(request.getStatus());
         }
+        project.setStartDate(request.getStartDate());
+        project.setDueDate(request.getDueDate());
         project.setUpdatedAt(LocalDateTime.now());
+
+        validateExistingTasksAgainstProjectWindow(userId, projectId, request.getStartDate(), request.getDueDate());
         
         Project updatedProject = projectRepository.save(project);
         return convertToResponse(updatedProject);
@@ -145,6 +158,8 @@ public class ProjectService {
             project.getName(),
             project.getDescription(),
             project.getStatus(),
+            project.getStartDate(),
+            project.getDueDate(),
             project.getCreatedAt(),
             project.getUpdatedAt()
         );
@@ -175,5 +190,26 @@ public class ProjectService {
         }
 
         return new Query().addCriteria(new Criteria().andOperator(criteriaList.toArray(new Criteria[0])));
+    }
+
+    private void validateProjectTimeline(LocalDate startDate, LocalDate dueDate) {
+        if (startDate == null || dueDate == null) {
+            throw new BadRequestException("Project start date and due date are required");
+        }
+
+        if (startDate.isAfter(dueDate)) {
+            throw new BadRequestException("Project start date must be before or equal to due date");
+        }
+    }
+
+    private void validateExistingTasksAgainstProjectWindow(String userId, String projectId, LocalDate startDate, LocalDate dueDate) {
+        List<Task> tasks = taskRepository.findByUserIdAndProjectId(userId, projectId);
+
+        boolean hasInvalidTask = tasks.stream().anyMatch(task ->
+                task.getDueDate() == null || task.getDueDate().isBefore(startDate) || task.getDueDate().isAfter(dueDate));
+
+        if (hasInvalidTask) {
+            throw new BadRequestException("Project dates would invalidate one or more existing tasks");
+        }
     }
 }
