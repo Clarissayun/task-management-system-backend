@@ -218,6 +218,8 @@ public class TaskService {
             ensureProjectOwnership(userId, effectiveProjectId);
         }
 
+        validateDateRange(dueDateFrom, dueDateTo, "Task due date range is invalid");
+
         Query query = buildTaskSearchQuery(userId, effectiveProjectId, status, priority, search, dueDateFrom, dueDateTo);
         long total = mongoTemplate.count(Query.of(query).limit(-1).skip(-1), Task.class);
         List<Task> tasks = mongoTemplate.find(query.with(pageable), Task.class);
@@ -329,5 +331,11 @@ public class TaskService {
         }
 
         return new Query().addCriteria(new Criteria().andOperator(criteriaList.toArray(new Criteria[0])));
+    }
+
+    private void validateDateRange(LocalDate from, LocalDate to, String errorMessage) {
+        if (from != null && to != null && from.isAfter(to)) {
+            throw new BadRequestException(errorMessage);
+        }
     }
 }

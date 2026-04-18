@@ -146,6 +146,9 @@ public class ProjectService {
             LocalDate dueDateFrom,
             LocalDate dueDateTo,
             Pageable pageable) {
+        validateDateRange(startDateFrom, startDateTo, "Project start date range is invalid");
+        validateDateRange(dueDateFrom, dueDateTo, "Project due date range is invalid");
+
         Query query = buildProjectSearchQuery(userId, status, search, startDateFrom, startDateTo, dueDateFrom, dueDateTo);
         long total = mongoTemplate.count(Query.of(query).limit(-1).skip(-1), Project.class);
         List<Project> projects = mongoTemplate.find(query.with(pageable), Project.class);
@@ -247,6 +250,12 @@ public class ProjectService {
 
         if (hasInvalidTask) {
             throw new BadRequestException("Project dates would invalidate one or more existing tasks");
+        }
+    }
+
+    private void validateDateRange(LocalDate from, LocalDate to, String errorMessage) {
+        if (from != null && to != null && from.isAfter(to)) {
+            throw new BadRequestException(errorMessage);
         }
     }
 }
