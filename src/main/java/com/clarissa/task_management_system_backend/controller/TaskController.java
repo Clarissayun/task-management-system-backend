@@ -13,6 +13,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.time.LocalDate;
 import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -55,6 +56,8 @@ public class TaskController {
             @RequestParam(required = false) TaskStatus status,
             @RequestParam(required = false) TaskPriority priority,
             @RequestParam(required = false) String search,
+            @RequestParam(required = false) LocalDate dueDateFrom,
+            @RequestParam(required = false) LocalDate dueDateTo,
             Authentication authentication,
             Pageable pageable) {
         String effectiveUserId = resolveUserId(authentication, userId);
@@ -64,6 +67,8 @@ public class TaskController {
             status,
             priority,
             search,
+            dueDateFrom,
+            dueDateTo,
             sanitizePageable(pageable)
         );
         return ResponseEntity.ok(tasks);
@@ -79,6 +84,8 @@ public class TaskController {
             @RequestParam(required = false) TaskStatus status,
             @RequestParam(required = false) TaskPriority priority,
             @RequestParam(required = false) String search,
+            @RequestParam(required = false) LocalDate dueDateFrom,
+            @RequestParam(required = false) LocalDate dueDateTo,
             Authentication authentication) {
         String effectiveUserId = resolveUserId(authentication, userId);
         Page<TaskResponse> page = taskService.searchTasks(
@@ -87,6 +94,8 @@ public class TaskController {
             status,
             priority,
             search,
+            dueDateFrom,
+            dueDateTo,
             defaultListPageable()
         );
         return ResponseEntity.ok(page.getContent());
@@ -100,7 +109,9 @@ public class TaskController {
             @RequestParam(required = false) String userId,
             @RequestParam(required = false) String projectId,
             Authentication authentication,
-            @RequestParam TaskStatus status) {
+            @RequestParam TaskStatus status,
+            @RequestParam(required = false) LocalDate dueDateFrom,
+            @RequestParam(required = false) LocalDate dueDateTo) {
         String effectiveUserId = resolveUserId(authentication, userId);
         Page<TaskResponse> page = taskService.searchTasks(
             effectiveUserId,
@@ -108,6 +119,8 @@ public class TaskController {
             status,
             null,
             null,
+            dueDateFrom,
+            dueDateTo,
             defaultListPageable()
         );
         return ResponseEntity.ok(page.getContent());
@@ -121,7 +134,9 @@ public class TaskController {
             @RequestParam(required = false) String userId,
             @RequestParam(required = false) String projectId,
             Authentication authentication,
-            @RequestParam TaskPriority priority) {
+            @RequestParam TaskPriority priority,
+            @RequestParam(required = false) LocalDate dueDateFrom,
+            @RequestParam(required = false) LocalDate dueDateTo) {
         String effectiveUserId = resolveUserId(authentication, userId);
         Page<TaskResponse> page = taskService.searchTasks(
             effectiveUserId,
@@ -129,6 +144,8 @@ public class TaskController {
             null,
             priority,
             null,
+            dueDateFrom,
+            dueDateTo,
             defaultListPageable()
         );
         return ResponseEntity.ok(page.getContent());

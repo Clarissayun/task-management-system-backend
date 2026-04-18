@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import java.time.LocalDate;
 import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -48,12 +49,20 @@ public class ProjectController {
             Authentication auth,
             @RequestParam(required = false) ProjectStatus status,
             @RequestParam(required = false) String search,
+            @RequestParam(required = false) LocalDate startDateFrom,
+            @RequestParam(required = false) LocalDate startDateTo,
+            @RequestParam(required = false) LocalDate dueDateFrom,
+            @RequestParam(required = false) LocalDate dueDateTo,
             Pageable pageable) {
         String userId = auth.getName();
         Page<ProjectResponse> projects = projectService.searchProjects(
             userId,
             status,
             search,
+            startDateFrom,
+            startDateTo,
+            dueDateFrom,
+            dueDateTo,
             sanitizePageable(pageable)
         );
         return ResponseEntity.ok(projects);
@@ -66,9 +75,22 @@ public class ProjectController {
     public ResponseEntity<List<ProjectResponse>> getAllProjects(
             Authentication auth,
             @RequestParam(required = false) ProjectStatus status,
-            @RequestParam(required = false) String search) {
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) LocalDate startDateFrom,
+            @RequestParam(required = false) LocalDate startDateTo,
+            @RequestParam(required = false) LocalDate dueDateFrom,
+            @RequestParam(required = false) LocalDate dueDateTo) {
         String userId = auth.getName();
-        Page<ProjectResponse> page = projectService.searchProjects(userId, status, search, defaultListPageable());
+        Page<ProjectResponse> page = projectService.searchProjects(
+            userId,
+            status,
+            search,
+            startDateFrom,
+            startDateTo,
+            dueDateFrom,
+            dueDateTo,
+            defaultListPageable()
+        );
         return ResponseEntity.ok(page.getContent());
     }
 
@@ -80,7 +102,7 @@ public class ProjectController {
             Authentication auth,
             @PathVariable ProjectStatus status) {
         String userId = auth.getName();
-        Page<ProjectResponse> page = projectService.searchProjects(userId, status, null, defaultListPageable());
+        Page<ProjectResponse> page = projectService.searchProjects(userId, status, null, null, null, null, null, defaultListPageable());
         return ResponseEntity.ok(page.getContent());
     }
     

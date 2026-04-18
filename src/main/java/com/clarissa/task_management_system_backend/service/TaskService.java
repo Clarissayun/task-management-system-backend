@@ -210,13 +210,15 @@ public class TaskService {
             TaskStatus status,
             TaskPriority priority,
             String search,
+            LocalDate dueDateFrom,
+            LocalDate dueDateTo,
             Pageable pageable) {
         String effectiveProjectId = normalizeProjectId(projectId);
         if (effectiveProjectId != null) {
             ensureProjectOwnership(userId, effectiveProjectId);
         }
 
-        Query query = buildTaskSearchQuery(userId, effectiveProjectId, status, priority, search);
+        Query query = buildTaskSearchQuery(userId, effectiveProjectId, status, priority, search, dueDateFrom, dueDateTo);
         long total = mongoTemplate.count(Query.of(query).limit(-1).skip(-1), Task.class);
         List<Task> tasks = mongoTemplate.find(query.with(pageable), Task.class);
 
@@ -284,7 +286,14 @@ public class TaskService {
         }
     }
 
-    private Query buildTaskSearchQuery(String userId, String projectId, TaskStatus status, TaskPriority priority, String search) {
+    private Query buildTaskSearchQuery(
+            String userId,
+            String projectId,
+            TaskStatus status,
+            TaskPriority priority,
+            String search,
+            LocalDate dueDateFrom,
+            LocalDate dueDateTo) {
         List<Criteria> criteriaList = new ArrayList<>();
         criteriaList.add(Criteria.where("userId").is(userId));
 
@@ -306,6 +315,17 @@ public class TaskService {
                     Criteria.where("title").regex(searchPattern),
                     Criteria.where("description").regex(searchPattern)
             ));
+        }
+
+        if (dueDateFrom != null || dueDateTo != null) {
+            Criteria dueDateCriteria = Criteria.where("dueDate");
+            if (dueDateFrom != null) {
+                dueDateCriteria = dueDateCriteria.gte(dueDateFrom);
+            }
+            if (dueDateTo != null) {
+                dueDateCriteria = dueDateCriteria.lte(dueDateTo);
+            }
+            criteriaList.add(dueDateCriteria);
         }
 
         return new Query().addCriteria(new Criteria().andOperator(criteriaList.toArray(new Criteria[0])));

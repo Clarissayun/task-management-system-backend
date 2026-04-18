@@ -135,10 +135,18 @@ public class ProjectService {
     
     /**
      * Get paginated projects for a user with optional filters.
-     * Supports filtering by status and search text.
+     * Supports filtering by status, date ranges, and search text.
      */
-    public Page<ProjectResponse> searchProjects(String userId, ProjectStatus status, String search, Pageable pageable) {
-        Query query = buildProjectSearchQuery(userId, status, search);
+    public Page<ProjectResponse> searchProjects(
+            String userId,
+            ProjectStatus status,
+            String search,
+            LocalDate startDateFrom,
+            LocalDate startDateTo,
+            LocalDate dueDateFrom,
+            LocalDate dueDateTo,
+            Pageable pageable) {
+        Query query = buildProjectSearchQuery(userId, status, search, startDateFrom, startDateTo, dueDateFrom, dueDateTo);
         long total = mongoTemplate.count(Query.of(query).limit(-1).skip(-1), Project.class);
         List<Project> projects = mongoTemplate.find(query.with(pageable), Project.class);
 
@@ -173,7 +181,14 @@ public class ProjectService {
                 .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
     }
 
-    private Query buildProjectSearchQuery(String userId, ProjectStatus status, String search) {
+    private Query buildProjectSearchQuery(
+            String userId,
+            ProjectStatus status,
+            String search,
+            LocalDate startDateFrom,
+            LocalDate startDateTo,
+            LocalDate dueDateFrom,
+            LocalDate dueDateTo) {
         List<Criteria> criteriaList = new ArrayList<>();
         criteriaList.add(Criteria.where("userId").is(userId));
 
@@ -187,6 +202,28 @@ public class ProjectService {
                     Criteria.where("name").regex(searchPattern),
                     Criteria.where("description").regex(searchPattern)
             ));
+        }
+
+        if (startDateFrom != null || startDateTo != null) {
+            Criteria startDateCriteria = Criteria.where("startDate");
+            if (startDateFrom != null) {
+                startDateCriteria = startDateCriteria.gte(startDateFrom);
+            }
+            if (startDateTo != null) {
+                startDateCriteria = startDateCriteria.lte(startDateTo);
+            }
+            criteriaList.add(startDateCriteria);
+        }
+
+        if (dueDateFrom != null || dueDateTo != null) {
+            Criteria dueDateCriteria = Criteria.where("dueDate");
+            if (dueDateFrom != null) {
+                dueDateCriteria = dueDateCriteria.gte(dueDateFrom);
+            }
+            if (dueDateTo != null) {
+                dueDateCriteria = dueDateCriteria.lte(dueDateTo);
+            }
+            criteriaList.add(dueDateCriteria);
         }
 
         return new Query().addCriteria(new Criteria().andOperator(criteriaList.toArray(new Criteria[0])));
