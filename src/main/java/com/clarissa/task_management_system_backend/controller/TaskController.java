@@ -14,11 +14,17 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 @RestController
 @RequestMapping("/api/tasks")
-@CrossOrigin(origins = "*")
 public class TaskController {
+
+    private static final int DEFAULT_UNPAGED_FALLBACK_SIZE = 100;
+    private static final int MAX_PAGE_SIZE = 100;
     
     @Autowired
     private TaskService taskService;
@@ -39,23 +45,55 @@ public class TaskController {
     }
     
     /**
-     * Get all tasks for a user
-     * GET /api/tasks?userId={userId}
+     * Get paginated tasks with optional filters.
+     * GET /api/tasks/paginated?userId={userId}&page=0&size=10&sort=createdAt,desc&projectId=&status=&priority=&search=
+     */
+    @GetMapping("/paginated")
+    public ResponseEntity<Page<TaskResponse>> searchTasks(
+            @RequestParam(required = false) String userId,
+            @RequestParam(required = false) String projectId,
+            @RequestParam(required = false) TaskStatus status,
+            @RequestParam(required = false) TaskPriority priority,
+            @RequestParam(required = false) String search,
+            Authentication authentication,
+            Pageable pageable) {
+        String effectiveUserId = resolveUserId(authentication, userId);
+        Page<TaskResponse> tasks = taskService.searchTasks(
+            effectiveUserId,
+            projectId,
+            status,
+            priority,
+            search,
+            sanitizePageable(pageable)
+        );
+        return ResponseEntity.ok(tasks);
+    }
+
+    /**
+     * Get tasks with optional filters (backward-compatible non-paginated endpoint).
      */
     @GetMapping
     public ResponseEntity<List<TaskResponse>> getTasksByUserId(
             @RequestParam(required = false) String userId,
             @RequestParam(required = false) String projectId,
+            @RequestParam(required = false) TaskStatus status,
+            @RequestParam(required = false) TaskPriority priority,
+            @RequestParam(required = false) String search,
             Authentication authentication) {
         String effectiveUserId = resolveUserId(authentication, userId);
-        List<TaskResponse> tasks = taskService.getTasksByUserId(effectiveUserId, projectId);
-        return ResponseEntity.ok(tasks);
+        Page<TaskResponse> page = taskService.searchTasks(
+            effectiveUserId,
+            projectId,
+            status,
+            priority,
+            search,
+            defaultListPageable()
+        );
+        return ResponseEntity.ok(page.getContent());
     }
-    
+
     /**
-     * Get tasks by user and status
-     * GET /api/tasks/status?userId={userId}&status={status}
-     * Example: GET /api/tasks/status?userId=123&status=TODO
+     * Backward-compatible filtered status endpoint.
      */
     @GetMapping("/status")
     public ResponseEntity<List<TaskResponse>> getTasksByUserIdAndStatus(
@@ -64,14 +102,19 @@ public class TaskController {
             Authentication authentication,
             @RequestParam TaskStatus status) {
         String effectiveUserId = resolveUserId(authentication, userId);
-        List<TaskResponse> tasks = taskService.getTasksByUserIdAndStatus(effectiveUserId, projectId, status);
-        return ResponseEntity.ok(tasks);
+        Page<TaskResponse> page = taskService.searchTasks(
+            effectiveUserId,
+            projectId,
+            status,
+            null,
+            null,
+            defaultListPageable()
+        );
+        return ResponseEntity.ok(page.getContent());
     }
-    
+
     /**
-     * Get tasks by user and priority
-     * GET /api/tasks/priority?userId={userId}&priority={priority}
-     * Example: GET /api/tasks/priority?userId=123&priority=HIGH
+     * Backward-compatible filtered priority endpoint.
      */
     @GetMapping("/priority")
     public ResponseEntity<List<TaskResponse>> getTasksByUserIdAndPriority(
@@ -80,8 +123,15 @@ public class TaskController {
             Authentication authentication,
             @RequestParam TaskPriority priority) {
         String effectiveUserId = resolveUserId(authentication, userId);
-        List<TaskResponse> tasks = taskService.getTasksByUserIdAndPriority(effectiveUserId, projectId, priority);
-        return ResponseEntity.ok(tasks);
+        Page<TaskResponse> page = taskService.searchTasks(
+            effectiveUserId,
+            projectId,
+            null,
+            priority,
+            null,
+            defaultListPageable()
+        );
+        return ResponseEntity.ok(page.getContent());
     }
     
     /**
@@ -169,5 +219,17 @@ public class TaskController {
         }
 
         return authenticatedUserId;
+    }
+
+    private Pageable sanitizePageable(Pageable pageable) {
+        int safePage = Math.max(pageable.getPageNumber(), 0);
+        int requestedSize = pageable.getPageSize() <= 0 ? DEFAULT_UNPAGED_FALLBACK_SIZE : pageable.getPageSize();
+        int safeSize = Math.min(requestedSize, MAX_PAGE_SIZE);
+        Sort sort = pageable.getSort().isSorted() ? pageable.getSort() : Sort.by(Sort.Direction.DESC, "createdAt");
+        return PageRequest.of(safePage, safeSize, sort);
+    }
+
+    private Pageable defaultListPageable() {
+        return PageRequest.of(0, DEFAULT_UNPAGED_FALLBACK_SIZE, Sort.by(Sort.Direction.DESC, "createdAt"));
     }
 }

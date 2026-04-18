@@ -11,11 +11,17 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 @RestController
 @RequestMapping("/api/projects")
-@CrossOrigin(origins = "http://localhost:5173")
 public class ProjectController {
+
+    private static final int DEFAULT_UNPAGED_FALLBACK_SIZE = 100;
+    private static final int MAX_PAGE_SIZE = 100;
     
     @Autowired
     private ProjectService projectService;
@@ -34,26 +40,48 @@ public class ProjectController {
     }
     
     /**
-     * Get all projects for the authenticated user
+     * Get paginated projects with optional filters.
+     * GET /api/projects/paginated?page=0&size=10&sort=createdAt,desc&status=ACTIVE&search=design
      */
-    @GetMapping
-    public ResponseEntity<List<ProjectResponse>> getAllProjects(Authentication auth) {
+    @GetMapping("/paginated")
+    public ResponseEntity<Page<ProjectResponse>> searchProjects(
+            Authentication auth,
+            @RequestParam(required = false) ProjectStatus status,
+            @RequestParam(required = false) String search,
+            Pageable pageable) {
         String userId = auth.getName();
-        List<ProjectResponse> projects = projectService.getProjectsByUserId(userId);
+        Page<ProjectResponse> projects = projectService.searchProjects(
+            userId,
+            status,
+            search,
+            sanitizePageable(pageable)
+        );
         return ResponseEntity.ok(projects);
     }
-    
+
     /**
-     * Get all projects by status
+     * Get all projects for the authenticated user with optional filters.
+     */
+    @GetMapping
+    public ResponseEntity<List<ProjectResponse>> getAllProjects(
+            Authentication auth,
+            @RequestParam(required = false) ProjectStatus status,
+            @RequestParam(required = false) String search) {
+        String userId = auth.getName();
+        Page<ProjectResponse> page = projectService.searchProjects(userId, status, search, defaultListPageable());
+        return ResponseEntity.ok(page.getContent());
+    }
+
+    /**
+     * Backward-compatible status endpoint.
      */
     @GetMapping("/status/{status}")
     public ResponseEntity<List<ProjectResponse>> getProjectsByStatus(
             Authentication auth,
             @PathVariable ProjectStatus status) {
-        
         String userId = auth.getName();
-        List<ProjectResponse> projects = projectService.getProjectsByUserIdAndStatus(userId, status);
-        return ResponseEntity.ok(projects);
+        Page<ProjectResponse> page = projectService.searchProjects(userId, status, null, defaultListPageable());
+        return ResponseEntity.ok(page.getContent());
     }
     
     /**
@@ -94,5 +122,17 @@ public class ProjectController {
         String userId = auth.getName();
         projectService.deleteProject(userId, projectId);
         return ResponseEntity.noContent().build();
+    }
+
+    private Pageable sanitizePageable(Pageable pageable) {
+        int safePage = Math.max(pageable.getPageNumber(), 0);
+        int requestedSize = pageable.getPageSize() <= 0 ? DEFAULT_UNPAGED_FALLBACK_SIZE : pageable.getPageSize();
+        int safeSize = Math.min(requestedSize, MAX_PAGE_SIZE);
+        Sort sort = pageable.getSort().isSorted() ? pageable.getSort() : Sort.by(Sort.Direction.DESC, "createdAt");
+        return PageRequest.of(safePage, safeSize, sort);
+    }
+
+    private Pageable defaultListPageable() {
+        return PageRequest.of(0, DEFAULT_UNPAGED_FALLBACK_SIZE, Sort.by(Sort.Direction.DESC, "createdAt"));
     }
 }

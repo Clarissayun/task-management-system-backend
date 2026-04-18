@@ -13,6 +13,15 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+
+import java.util.ArrayList;
+import java.util.regex.Pattern;
 
 @Service
 public class TaskService {
@@ -22,6 +31,9 @@ public class TaskService {
 
     @Autowired
     private ProjectRepository projectRepository;
+
+    @Autowired
+    private MongoTemplate mongoTemplate;
     
     /**
      * Create a new task for a user
@@ -179,6 +191,33 @@ public class TaskService {
     }
     
     /**
+     * Get paginated tasks for a user with optional filters.
+     * Supports filtering by projectId, status, priority, and search text.
+     */
+    public Page<TaskResponse> searchTasks(
+            String userId,
+            String projectId,
+            TaskStatus status,
+            TaskPriority priority,
+            String search,
+            Pageable pageable) {
+        String effectiveProjectId = normalizeProjectId(projectId);
+        if (effectiveProjectId != null) {
+            ensureProjectOwnership(userId, effectiveProjectId);
+        }
+
+        Query query = buildTaskSearchQuery(userId, effectiveProjectId, status, priority, search);
+        long total = mongoTemplate.count(Query.of(query).limit(-1).skip(-1), Task.class);
+        List<Task> tasks = mongoTemplate.find(query.with(pageable), Task.class);
+
+        return new PageImpl<>(
+                tasks.stream().map(this::convertToResponse).collect(Collectors.toList()),
+                pageable,
+                total
+        );
+    }
+    
+    /**
      * Convert Task entity to TaskResponse DTO
      */
     private TaskResponse convertToResponse(Task task) {
@@ -212,5 +251,32 @@ public class TaskService {
 
         String normalized = projectId.trim();
         return normalized.isEmpty() ? null : normalized;
+    }
+
+    private Query buildTaskSearchQuery(String userId, String projectId, TaskStatus status, TaskPriority priority, String search) {
+        List<Criteria> criteriaList = new ArrayList<>();
+        criteriaList.add(Criteria.where("userId").is(userId));
+
+        if (projectId != null) {
+            criteriaList.add(Criteria.where("projectId").is(projectId));
+        }
+
+        if (status != null) {
+            criteriaList.add(Criteria.where("status").is(status));
+        }
+
+        if (priority != null) {
+            criteriaList.add(Criteria.where("priority").is(priority));
+        }
+
+        if (search != null && !search.isBlank()) {
+            Pattern searchPattern = Pattern.compile(Pattern.quote(search.trim()), Pattern.CASE_INSENSITIVE);
+            criteriaList.add(new Criteria().orOperator(
+                    Criteria.where("title").regex(searchPattern),
+                    Criteria.where("description").regex(searchPattern)
+            ));
+        }
+
+        return new Query().addCriteria(new Criteria().andOperator(criteriaList.toArray(new Criteria[0])));
     }
 }

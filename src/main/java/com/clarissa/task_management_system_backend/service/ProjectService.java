@@ -12,6 +12,15 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+
+import java.util.ArrayList;
+import java.util.regex.Pattern;
 
 @Service
 public class ProjectService {
@@ -21,6 +30,9 @@ public class ProjectService {
     
     @Autowired
     private TaskRepository taskRepository;
+
+    @Autowired
+    private MongoTemplate mongoTemplate;
     
     /**
      * Create a new project for a user
@@ -109,6 +121,22 @@ public class ProjectService {
     }
     
     /**
+     * Get paginated projects for a user with optional filters.
+     * Supports filtering by status and search text.
+     */
+    public Page<ProjectResponse> searchProjects(String userId, ProjectStatus status, String search, Pageable pageable) {
+        Query query = buildProjectSearchQuery(userId, status, search);
+        long total = mongoTemplate.count(Query.of(query).limit(-1).skip(-1), Project.class);
+        List<Project> projects = mongoTemplate.find(query.with(pageable), Project.class);
+
+        return new PageImpl<>(
+                projects.stream().map(this::convertToResponse).collect(Collectors.toList()),
+                pageable,
+                total
+        );
+    }
+    
+    /**
      * Convert Project entity to ProjectResponse DTO
      */
     private ProjectResponse convertToResponse(Project project) {
@@ -128,5 +156,24 @@ public class ProjectService {
     private Project findUserProjectOrThrow(String userId, String projectId) {
         return projectRepository.findByIdAndUserId(projectId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
+    }
+
+    private Query buildProjectSearchQuery(String userId, ProjectStatus status, String search) {
+        List<Criteria> criteriaList = new ArrayList<>();
+        criteriaList.add(Criteria.where("userId").is(userId));
+
+        if (status != null) {
+            criteriaList.add(Criteria.where("status").is(status));
+        }
+
+        if (search != null && !search.isBlank()) {
+            Pattern searchPattern = Pattern.compile(Pattern.quote(search.trim()), Pattern.CASE_INSENSITIVE);
+            criteriaList.add(new Criteria().orOperator(
+                    Criteria.where("name").regex(searchPattern),
+                    Criteria.where("description").regex(searchPattern)
+            ));
+        }
+
+        return new Query().addCriteria(new Criteria().andOperator(criteriaList.toArray(new Criteria[0])));
     }
 }
