@@ -20,6 +20,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Collation;
 import org.springframework.data.mongodb.core.query.Query;
 
 import java.util.ArrayList;
@@ -150,6 +151,9 @@ public class ProjectService {
         validateDateRange(dueDateFrom, dueDateTo, "Project due date range is invalid");
 
         Query query = buildProjectSearchQuery(userId, status, search, startDateFrom, startDateTo, dueDateFrom, dueDateTo);
+        if (pageable != null && pageable.getSort().getOrderFor("name") != null) {
+            query.collation(Collation.of("en").strength(Collation.ComparisonLevel.secondary()));
+        }
         long total = mongoTemplate.count(Query.of(query).limit(-1).skip(-1), Project.class);
         List<Project> projects = mongoTemplate.find(query.with(pageable), Project.class);
 
