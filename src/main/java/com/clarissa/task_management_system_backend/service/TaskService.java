@@ -43,9 +43,9 @@ public class TaskService {
      */
     public TaskResponse createTask(String userId, String projectId, TaskRequest request) {
         String effectiveProjectId = normalizeProjectId(projectId != null ? projectId : request.getProjectId());
-        if (effectiveProjectId != null) {
-            validateTaskDueDateAgainstProject(userId, effectiveProjectId, request.getDueDate());
-        }
+
+        LocalDateTime now = LocalDateTime.now();
+        validateTaskDueDate(userId, effectiveProjectId, request.getDueDate(), now.toLocalDate());
 
         Task task = new Task();
         task.setUserId(userId);
@@ -55,8 +55,8 @@ public class TaskService {
         task.setDueDate(request.getDueDate());
         task.setPriority(request.getPriority() != null ? request.getPriority() : TaskPriority.LOW);
         task.setStatus(TaskStatus.TODO); // Default status
-        task.setCreatedAt(LocalDateTime.now());
-        task.setUpdatedAt(LocalDateTime.now());
+        task.setCreatedAt(now);
+        task.setUpdatedAt(now);
         
         Task savedTask = taskRepository.save(task);
         return convertToResponse(savedTask);
@@ -148,9 +148,10 @@ public class TaskService {
             }
         }
 
-        if (effectiveProjectId != null) {
-            validateTaskDueDateAgainstProject(userId, effectiveProjectId, request.getDueDate());
-        }
+        LocalDate taskCreationDate = task.getCreatedAt() != null
+            ? task.getCreatedAt().toLocalDate()
+            : LocalDate.now();
+        validateTaskDueDate(userId, effectiveProjectId, request.getDueDate(), taskCreationDate);
         
         task.setTitle(request.getTitle());
         task.setDescription(request.getDescription());
@@ -268,9 +269,17 @@ public class TaskService {
         return normalized.isEmpty() ? null : normalized;
     }
 
-    private void validateTaskDueDateAgainstProject(String userId, String projectId, LocalDate taskDueDate) {
+    private void validateTaskDueDate(String userId, String projectId, LocalDate taskDueDate, LocalDate taskCreationDate) {
         if (taskDueDate == null) {
             throw new BadRequestException("Task due date is required");
+        }
+
+        if (taskCreationDate != null && taskDueDate.isBefore(taskCreationDate)) {
+            throw new BadRequestException("Task due date cannot be before task creation date");
+        }
+
+        if (projectId == null) {
+            return;
         }
 
         Project project = projectRepository.findByIdAndUserId(projectId, userId)
@@ -279,13 +288,14 @@ public class TaskService {
         LocalDate startDate = project.getStartDate();
         LocalDate dueDate = project.getDueDate();
 
-        if (startDate == null || dueDate == null) {
-            throw new BadRequestException("Project timeline is not configured");
+        if (dueDate != null && taskDueDate.isAfter(dueDate)) {
+            throw new BadRequestException("Task due date cannot be after project due date");
         }
 
-        if (taskDueDate.isBefore(startDate) || taskDueDate.isAfter(dueDate)) {
-            throw new BadRequestException("Task due date must be within the project timeline");
+        if (startDate != null && taskDueDate.isBefore(startDate)) {
+            throw new BadRequestException("Task due date cannot be before project start date");
         }
+
     }
 
     private Query buildTaskSearchQuery(
