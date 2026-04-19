@@ -3,11 +3,14 @@ package com.clarissa.task_management_system_backend.controller;
 import com.clarissa.task_management_system_backend.dto.auth.RegisterRequest;
 import com.clarissa.task_management_system_backend.dto.auth.LoginRequest;
 import com.clarissa.task_management_system_backend.dto.auth.AuthResponse;
+import com.clarissa.task_management_system_backend.dto.auth.OtpRequest;
+import com.clarissa.task_management_system_backend.dto.auth.OtpVerifyRequest;
 import com.clarissa.task_management_system_backend.dto.auth.RefreshTokenRequest;
 import com.clarissa.task_management_system_backend.dto.user.UserResponse;
 import com.clarissa.task_management_system_backend.dto.user.UserUpdateRequest;
 import com.clarissa.task_management_system_backend.dto.user.PasswordUpdateRequest;
 import com.clarissa.task_management_system_backend.exception.BadRequestException;
+import com.clarissa.task_management_system_backend.service.OtpService;
 import com.clarissa.task_management_system_backend.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +26,9 @@ public class AuthController {
     
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private OtpService otpService;
     
     /**
      * Register a new user
@@ -51,6 +57,26 @@ public class AuthController {
     @PostMapping("/refresh")
     public ResponseEntity<AuthResponse> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
         AuthResponse response = userService.refreshToken(request.getRefreshToken());
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Request an OTP login code
+     * POST /api/auth/otp/request
+     */
+    @PostMapping("/otp/request")
+    public ResponseEntity<String> requestOtp(@Valid @RequestBody OtpRequest request) {
+        String response = otpService.requestOtp(request);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Verify OTP and login
+     * POST /api/auth/otp/verify
+     */
+    @PostMapping("/otp/verify")
+    public ResponseEntity<AuthResponse> verifyOtp(@Valid @RequestBody OtpVerifyRequest request) {
+        AuthResponse response = otpService.verifyOtp(request);
         return ResponseEntity.ok(response);
     }
     
