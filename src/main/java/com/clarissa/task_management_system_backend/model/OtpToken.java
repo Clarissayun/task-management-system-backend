@@ -31,6 +31,7 @@ public class OtpToken {
     private int attempts;
     private boolean used;
     private LocalDateTime createdAt;
+    @Indexed(name = "otp_expires_at_ttl_idx", expireAfterSeconds = 0)
     private LocalDateTime expiresAt;
     private LocalDateTime verifiedAt;
     private LocalDateTime updatedAt;
