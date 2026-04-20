@@ -37,17 +37,7 @@ public class UserService {
         String normalizedUsername = normalizeUsername(request.getUsername());
         String normalizedEmail = normalizeEmail(request.getEmail());
 
-        validatePasswordPolicy(request.getPassword(), normalizedUsername, normalizedEmail);
-        
-        // Check if username already exists
-        if (userRepository.existsByUsername(normalizedUsername)) {
-            throw new BadRequestException("Username already exists");
-        }
-        
-        // Check if email already exists
-        if (userRepository.existsByEmail(normalizedEmail)) {
-            throw new BadRequestException("Email already exists");
-        }
+        validateRegistrationRequest(request);
         
         // Create new user
         User user = new User();
@@ -59,6 +49,42 @@ public class UserService {
         User savedUser = userRepository.save(user);
         
         return buildAuthResponseWithTokens("User registered successfully", savedUser);
+    }
+
+    public AuthResponse registerWithEncodedPassword(String username, String email, String encodedPassword) {
+        String normalizedUsername = normalizeUsername(username);
+        String normalizedEmail = normalizeEmail(email);
+
+        validateRegistrationAvailability(normalizedUsername, normalizedEmail);
+
+        User user = new User();
+        user.setUsername(normalizedUsername);
+        user.setEmail(normalizedEmail);
+        user.setPassword(encodedPassword);
+        user.setCreatedAt(LocalDateTime.now());
+
+        User savedUser = userRepository.save(user);
+
+        return buildAuthResponseWithTokens("User registered successfully", savedUser);
+    }
+
+    public void validateRegistrationAvailability(String username, String email) {
+        if (userRepository.existsByUsername(username)) {
+            throw new BadRequestException("Username already exists");
+        }
+
+        if (userRepository.existsByEmail(email)) {
+            throw new BadRequestException("Email already exists");
+        }
+    }
+
+    public void validateRegistrationRequest(RegisterRequest request) {
+        String normalizedUsername = normalizeUsername(request.getUsername());
+        String normalizedEmail = normalizeEmail(request.getEmail());
+
+        validatePasswordPolicy(request.getPassword(), normalizedUsername, normalizedEmail);
+
+        validateRegistrationAvailability(normalizedUsername, normalizedEmail);
     }
     
     /**

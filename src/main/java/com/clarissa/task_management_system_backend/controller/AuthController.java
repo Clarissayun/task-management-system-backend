@@ -79,6 +79,26 @@ public class AuthController {
         AuthResponse response = otpService.verifyOtp(request);
         return ResponseEntity.ok(response);
     }
+
+    /**
+     * Request an OTP registration code
+     * POST /api/auth/register/otp/request
+     */
+    @PostMapping("/register/otp/request")
+    public ResponseEntity<String> requestRegisterOtp(@Valid @RequestBody RegisterRequest request) {
+        String response = otpService.requestRegistrationOtp(request);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Verify OTP and complete registration
+     * POST /api/auth/register/otp/verify
+     */
+    @PostMapping("/register/otp/verify")
+    public ResponseEntity<AuthResponse> verifyRegisterOtp(@Valid @RequestBody OtpVerifyRequest request) {
+        AuthResponse response = otpService.verifyRegistrationOtp(request);
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
+    }
     
     /**
      * Get user profile by ID

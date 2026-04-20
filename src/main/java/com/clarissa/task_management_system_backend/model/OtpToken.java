@@ -21,6 +21,12 @@ public class OtpToken {
     @Indexed
     private String email;
 
+    @Indexed
+    private OtpPurpose purpose;
+
+    private String username;
+    private String passwordHash;
+
     private String otpHash;
     private int attempts;
     private boolean used;

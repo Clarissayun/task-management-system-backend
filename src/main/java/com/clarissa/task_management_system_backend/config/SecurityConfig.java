@@ -43,6 +43,7 @@ public class SecurityConfig {
             )
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/refresh").permitAll()
+                .requestMatchers("/api/auth/register/otp/**").permitAll()
                 .requestMatchers("/api/auth/otp/**").permitAll()
                 .requestMatchers("/api/dev/email/**").permitAll()
                 .anyRequest().authenticated()
