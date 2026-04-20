@@ -19,6 +19,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -158,6 +159,34 @@ public class AuthController {
             Authentication authentication) {
         verifyCurrentUser(authentication, userId);
         AuthResponse response = userService.updatePassword(userId, request);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Upload user avatar
+     * POST /api/auth/user/{userId}/avatar
+     * Accepts multipart file (image)
+     */
+    @PostMapping("/user/{userId}/avatar")
+    public ResponseEntity<UserResponse> uploadAvatar(
+            @PathVariable String userId,
+            @RequestParam("file") MultipartFile file,
+            Authentication authentication) {
+        verifyCurrentUser(authentication, userId);
+        UserResponse response = userService.uploadAvatar(userId, file);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Remove user avatar
+     * DELETE /api/auth/user/{userId}/avatar
+     */
+    @DeleteMapping("/user/{userId}/avatar")
+    public ResponseEntity<UserResponse> removeAvatar(
+            @PathVariable String userId,
+            Authentication authentication) {
+        verifyCurrentUser(authentication, userId);
+        UserResponse response = userService.removeAvatar(userId);
         return ResponseEntity.ok(response);
     }
 

@@ -17,6 +17,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import java.time.LocalDateTime;
 import java.util.Locale;
 import java.util.Set;
+import org.springframework.web.multipart.MultipartFile;
+import java.util.Base64;
+import java.io.IOException;
 
 @Service
 public class UserService {
@@ -209,6 +212,58 @@ public class UserService {
     }
     
     /**
+     * Upload user avatar
+     * Converts image file to Base64 and stores in user profile
+     */
+    public UserResponse uploadAvatar(String userId, MultipartFile file) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        
+        if (file == null || file.isEmpty()) {
+            throw new BadRequestException("Avatar file is required");
+        }
+        
+        // Validate file type
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new BadRequestException("File must be an image");
+        }
+        
+        // Validate file size (max 5MB)
+        long maxFileSize = 5 * 1024 * 1024; // 5MB
+        if (file.getSize() > maxFileSize) {
+            throw new BadRequestException("Avatar file size must not exceed 5MB");
+        }
+        
+        try {
+            byte[] fileBytes = file.getBytes();
+            String base64Avatar = "data:" + contentType + ";base64," + Base64.getEncoder().encodeToString(fileBytes);
+            user.setAvatar(base64Avatar);
+            user.setUpdatedAt(LocalDateTime.now());
+            
+            User updatedUser = userRepository.save(user);
+            return convertToResponse(updatedUser);
+        } catch (IOException e) {
+            throw new BadRequestException("Failed to process avatar file: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Remove user avatar
+     * Clears the avatar field from user profile
+     */
+    public UserResponse removeAvatar(String userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        
+        user.setAvatar(null);
+        user.setUpdatedAt(LocalDateTime.now());
+        
+        User updatedUser = userRepository.save(user);
+        return convertToResponse(updatedUser);
+    }
+    
+    /**
      * Convert User entity to UserResponse DTO
      */
     private UserResponse convertToResponse(User user) {
@@ -216,6 +271,7 @@ public class UserService {
             user.getId(),
             user.getUsername(),
             user.getEmail(),
+            user.getAvatar(),
             user.getCreatedAt()
         );
     }

@@ -24,6 +24,7 @@ public class User {
     private String email;
     
     private String password;
+    private String avatar; // Base64 encoded avatar image
     private LocalDateTime createdAt = LocalDateTime.now();
     private LocalDateTime updatedAt = LocalDateTime.now();
 }
