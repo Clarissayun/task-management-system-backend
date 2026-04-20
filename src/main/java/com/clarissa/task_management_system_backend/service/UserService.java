@@ -29,6 +29,9 @@ public class UserService {
 
     @Autowired
     private JwtTokenProvider jwtTokenProvider;
+
+    @Autowired
+    private PendingRegistrationService pendingRegistrationService;
     
     /**
      * Register a new user
@@ -76,6 +79,8 @@ public class UserService {
         if (userRepository.existsByEmail(email)) {
             throw new BadRequestException("Email already exists");
         }
+
+        pendingRegistrationService.validateNoConflictingReservation(username, email);
     }
 
     public void validateRegistrationRequest(RegisterRequest request) {

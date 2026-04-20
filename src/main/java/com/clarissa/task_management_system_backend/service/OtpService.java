@@ -34,6 +34,7 @@ public class OtpService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final UserService userService;
+    private final PendingRegistrationService pendingRegistrationService;
 
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -106,21 +107,25 @@ public class OtpService {
     public String requestRegistrationOtp(RegisterRequest request) {
         userService.validateRegistrationRequest(request);
 
+        String normalizedUsername = normalizeUsername(request.getUsername());
         String normalizedEmail = normalizeEmail(request.getEmail());
         LocalDateTime now = LocalDateTime.now();
+        LocalDateTime expiresAt = now.plusMinutes(OTP_EXPIRY_MINUTES);
+
+        pendingRegistrationService.reserve(normalizedUsername, normalizedEmail, expiresAt);
         invalidateActiveOtps(normalizedEmail, OtpPurpose.REGISTRATION, now);
 
         String otp = generateOtp();
         OtpToken otpToken = new OtpToken();
         otpToken.setEmail(normalizedEmail);
         otpToken.setPurpose(OtpPurpose.REGISTRATION);
-        otpToken.setUsername(normalizeUsername(request.getUsername()));
+        otpToken.setUsername(normalizedUsername);
         otpToken.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         otpToken.setOtpHash(passwordEncoder.encode(otp));
         otpToken.setAttempts(0);
         otpToken.setUsed(false);
         otpToken.setCreatedAt(now);
-        otpToken.setExpiresAt(now.plusMinutes(OTP_EXPIRY_MINUTES));
+        otpToken.setExpiresAt(expiresAt);
         otpToken.setUpdatedAt(now);
 
         otpTokenRepository.save(otpToken);
@@ -160,11 +165,15 @@ public class OtpService {
             throw new BadRequestException("Invalid OTP");
         }
 
+            pendingRegistrationService.ensureActiveReservation(otpToken.getUsername(), otpToken.getEmail());
+
         AuthResponse response = userService.registerWithEncodedPassword(
                 otpToken.getUsername(),
                 otpToken.getEmail(),
                 otpToken.getPasswordHash()
         );
+
+            pendingRegistrationService.releaseByEmail(otpToken.getEmail());
 
         otpToken.setUsed(true);
         otpToken.setVerifiedAt(now);
